@@ -2,7 +2,7 @@
 ```zsh
 curl -fsSL https://elastic.co/start-local | sh
 
-mv elastic-start-local/.env .
+cp elastic-start-local/.env .
 
 sh elastic-start-local/start.sh
 ```
@@ -26,7 +26,7 @@ brew install uv
 
 use uv as package manager
 ```zsh
-uv init
+uv venv
 source .venv/bin/activate
 uv add -r requirements.txt
 uv run app.py
