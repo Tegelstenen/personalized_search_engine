@@ -1,0 +1,148 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    position: relative;
+}
+
+.main-content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+h1 {
+    color: #1a0dab;
+    text-align: center;
+}
+
+.search-container {
+    margin: 30px 0;
+    text-align: center;
+}
+
+#search-input {
+    width: 70%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #dfe1e5;
+    border-radius: 24px;
+}
+
+#search-button {
+    padding: 10px 20px;
+    background-color: #1a0dab;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.results {
+    margin-top: 20px;
+}
+
+.result {
+    margin-bottom: 20px;
+    padding: 15px;
+    border: 1px solid #dfe1e5;
+    border-radius: 8px;
+}
+
+.result-title {
+    color: #1a0dab;
+    font-size: 18px;
+    margin-bottom: 5px;
+}
+
+.result-content {
+    margin-bottom: 10px;
+}
+
+.result-meta {
+    color: #70757a;
+    font-size: 14px;
+}
+
+.highlight {
+    background-color: #ffffd0;
+    font-weight: bold;
+}
+
+#loading {
+    text-align: center;
+    display: none;
+}
+
+form {
+    text-align: center;
+    margin: 30px 0;
+}
+
+input[type="text"], input[type="password"] {
+    width: 70%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #dfe1e5;
+    border-radius: 24px;
+    margin-bottom: 10px;
+}
+
+button[type="submit"] {
+    padding: 10px 20px;
+    background-color: #1a0dab;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.user-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    background-color: #f8f9fa;
+    padding: 15px 25px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    min-width: 150px;
+}
+
+.user-container span {
+    font-size: 14px;
+    color: #1a0dab;
+    text-align: left;
+}
+
+.logout-button {
+    padding: 8px 16px;
+    background-color: #dc3545;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: background-color 0.2s;
+    text-align: center;
+    display: block;
+}
+
+.logout-button:hover {
+    background-color: #c82333;
+}
+
+.error-message {
+    text-align: center;
+    margin: 15px 0;
+    color: red;
+}
+
+p {
+    text-align: center;
+    margin: 15px 0;
+}
