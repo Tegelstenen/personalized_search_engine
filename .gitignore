@@ -12,3 +12,7 @@ wheels/
 .env
 
 elastic-start-local
+instance
+
+# logs
+*.log

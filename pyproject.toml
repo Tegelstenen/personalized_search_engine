@@ -8,4 +8,15 @@ dependencies = [
     "dotenv>=0.9.9",
     "elasticsearch>=8.17.2",
     "flask>=3.1.0",
+    "flask_sqlalchemy",
+    "flask_login",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "black",
+    "isort",
+    "pre-commit",
+    "pyright",
+    "types-Flask"
 ]
