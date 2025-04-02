@@ -33,3 +33,17 @@ uv run app.py
 ```
 
 then you can see the GUI locally on http://127.0.0.1:5000
+
+# To get the corpus
+```zsh
+mkdir corpus
+curl -L "https://zenodo.org/records/5603369/files/wasabi-2-0.tar?download=1" -o corpus/wasabi-2-0.tar
+cd corpus
+tar -xf wasabi-2-0.tar
+cd json
+unzip json.zip -d ../
+cd ..
+rm -rf json rdf wasabi-2-0.tar
+cd ..
+```
+

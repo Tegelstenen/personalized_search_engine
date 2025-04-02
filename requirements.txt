@@ -1,3 +1,4 @@
-flask
-elasticsearch
-dotenv
+flask==2.3.3
+elasticsearch==8.9.0
+python-dotenv==1.0.0
+ijson==3.2.2
