@@ -17,73 +17,8 @@ client = Elasticsearch(
     basic_auth=("elastic", os.environ.get("ES_LOCAL_PASSWORD")) 
     )
 
-
-# Index name to search in
-INDEX_NAME = "my_documents"
-
-# Create sample data for testing (you can replace this with your own data later)
-def create_sample_data():
-    # Delete index if it already exists
-    if client.indices.exists(index=INDEX_NAME):
-        client.indices.delete(index=INDEX_NAME)
-    
-    # Create index with mappings
-    client.indices.create(
-        index=INDEX_NAME,
-        body={
-            "mappings": {
-                "properties": {
-                    "title": {"type": "text"},
-                    "content": {"type": "text"},
-                    "author": {"type": "keyword"},
-                    "date": {"type": "date", "format": "yyyy-MM-dd"}
-                }
-            }
-        }
-    )
-    
-    # Add some sample documents
-    documents = [
-        {
-            "title": "Introduction to Elasticsearch",
-            "content": "Elasticsearch is a distributed, RESTful search and analytics engine.",
-            "author": "Elastic",
-            "date": "2023-01-15"
-        },
-        {
-            "title": "Python Programming Basics",
-            "content": "Python is a high-level, interpreted programming language.",
-            "author": "Guido van Rossum",
-            "date": "2023-02-20"
-        },
-        {
-            "title": "Web Development with Flask",
-            "content": "Flask is a lightweight WSGI web application framework in Python.",
-            "author": "Armin Ronacher",
-            "date": "2023-03-10"
-        },
-        {
-            "title": "Data Analysis with Python",
-            "content": "Python is widely used for data analysis with libraries like Pandas and NumPy.",
-            "author": "Data Scientist",
-            "date": "2023-04-05"
-        },
-        {
-            "title": "Elasticsearch Query DSL",
-            "content": "The Query DSL is a JSON-based query language for Elasticsearch.",
-            "author": "Elastic",
-            "date": "2023-05-22"
-        }
-    ]
-    
-    # Bulk index the documents
-    for i, doc in enumerate(documents):
-        client.index(index=INDEX_NAME, id=i+1, document=doc)
-    
-    # Refresh the index to make the documents available for search
-    client.indices.refresh(index=INDEX_NAME)
-    
-    print(f"Created {len(documents)} sample documents in index '{INDEX_NAME}'")
+# Indices to search in (from indexing.py)
+MUSIC_INDICES = ["artists", "albums", "songs", "topics", "emotions"]
 
 # Route for the home page with search form
 @app.route('/')
@@ -99,21 +34,26 @@ def search():
     if not query:
         return jsonify({"hits": []})
     
-    # Perform search in Elasticsearch
+    # Perform search in Elasticsearch across all music indices
     search_results = client.search(
-        index=INDEX_NAME,
+        index=",".join(MUSIC_INDICES),
         body={
             "query": {
                 "multi_match": {
                     "query": query,
-                    "fields": ["title^2", "content", "author"],  # ^2 boosts the title field
+                    "fields": ["name^3", "title^3", "genre^2", "description", "lyrics", "artist_name", "album_name"],
                     "fuzziness": "AUTO"
                 }
             },
             "highlight": {
                 "fields": {
+                    "name": {},
                     "title": {},
-                    "content": {}
+                    "genre": {},
+                    "description": {},
+                    "lyrics": {},
+                    "artist_name": {},
+                    "album_name": {}
                 }
             }
         }
@@ -125,20 +65,47 @@ def search():
         source = hit['_source']
         highlight = hit.get('highlight', {})
         
-        hits.append({
+        # Determine document type based on _index
+        doc_type = hit['_index']
+        
+        # Extract the main title field based on document type
+        title_field = "name" if doc_type in ["artists", "topics", "emotions"] else "title"
+        title = highlight.get(title_field, [source.get(title_field, "Unknown")])[0]
+        
+        # Create a snippet from available highlighted content
+        snippet = ""
+        for field in ["description", "lyrics", "genre"]:
+            if field in highlight:
+                snippet = highlight[field][0]
+                break
+        
+        # If no highlighted snippet was found, use a field from source
+        if not snippet:
+            for field in ["description", "lyrics", "genre"]:
+                if field in source:
+                    snippet = source[field]
+                    # Truncate long text
+                    if isinstance(snippet, str) and len(snippet) > 200:
+                        snippet = snippet[:200] + "..."
+                    break
+        
+        # Create a result object with common fields
+        result = {
             "id": hit['_id'],
-            "title": highlight.get('title', [source['title']])[0],
-            "content": highlight.get('content', [source['content']])[0],
-            "author": source['author'],
-            "date": source['date'],
-            "score": hit['_score']
-        })
+            "title": title,
+            "content": snippet,
+            "type": doc_type,
+            "score": hit['_score'],
+            # Add all source fields for type-specific rendering
+            "source": source
+        }
+        
+        hits.append(result)
     
     return jsonify({"hits": hits})
 
 if __name__ == '__main__':
-    # Create sample data when the app starts
-    create_sample_data()
+    # No need to create sample data, it's already indexed by indexing.py
     
     # Run the Flask app
     app.run(debug=True)

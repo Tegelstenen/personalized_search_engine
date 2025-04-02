@@ -1,4 +1,4 @@
-#  First, you need to setup the local engine
+#  First, you need to setup the local elastic engine
 ```zsh
 curl -fsSL https://elastic.co/start-local | sh
 
@@ -7,13 +7,13 @@ cp elastic-start-local/.env .
 sh elastic-start-local/start.sh
 ```
 
-## Endpoints
+### Endpoints
 After running the script:
 
 - Elasticsearch will be running at http://localhost:9200
 - Kibana will be running at http://localhost:5601
 
-## more info
+### more info
 - [initial setup](https://github.com/elastic/start-local?tab=readme-ov-file#-try-elasticsearch-and-kibana-locally)
 
 - [elastic python documentation](https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/overview.html)
@@ -47,3 +47,7 @@ rm -rf json rdf wasabi-2-0.tar
 cd ..
 ```
 
+## Start indexing
+```zsh
+uv run src/indexing.py
+```

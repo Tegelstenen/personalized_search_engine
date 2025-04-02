@@ -7,11 +7,11 @@ INDEX_MAPPINGS = {
             "urlFacebook": {"type": "keyword"},
             "urlMySpace": {"type": "keyword"},
             "urlTwitter": {"type": "keyword"},
-            "locationInfo": {"type": "keyword"}, # For filtering/aggregation by location parts
+            "locationInfo": {"type": "keyword"}, 
             "urlWikia": {"type": "keyword"},
-            "genres": {"type": "keyword"}, # Assuming you want to filter/aggregate by genre
+            "genres": {"type": "keyword"}, 
             "labels": {"type": "keyword"},
-            "rdf": {"type": "text", "index": False}, # Indexing RDF as text might be limited. Consider parsing or disabling indexing if not needed for search.
+            "rdf": {"type": "text", "index": False},
             "urlAmazon": {"type": "keyword"},
             "urlITunes": {"type": "keyword"},
             "urlAllmusic": {"type": "keyword"},
@@ -28,8 +28,8 @@ INDEX_MAPPINGS = {
             "lifeSpan": {
                 "properties": {
                     "ended": {"type": "boolean"},
-                    "begin": {"type": "keyword"}, # Or date if format is consistent
-                    "end": {"type": "keyword"}    # Or date
+                    "begin": {"type": "keyword"},
+                    "end": {"type": "keyword"} 
                 }
             },
             "location": {
@@ -49,7 +49,7 @@ INDEX_MAPPINGS = {
              },
             "id_artist_deezer": {"type": "keyword"},
             "urlDeezer": {"type": "keyword"},
-            "picture": { # Not indexing picture URLs by default, adjust if needed
+            "picture": { 
                 "enabled": False
             },
             "deezerFans": {"type": "integer"},
@@ -58,13 +58,45 @@ INDEX_MAPPINGS = {
             "nameVariations": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 256}}},
             "urls": {"type": "keyword"},
             "id_artist_discogs": {"type": "keyword"},
-            "subject": {"type": "keyword"}, # Good for filtering/faceting
-            "associatedMusicalArtist": {"type": "keyword"}, # Assuming IDs or names
+            "subject": {"type": "keyword"},
+            "associatedMusicalArtist": {"type": "keyword"}, 
             "dbp_genre": {"type": "keyword"},
             "recordLabel": {"type": "keyword"},
             "dbp_abstract": {"type": "text"},
             "name_accent_fold": {"type": "text"},
-            "nameVariations_fold": {"type": "text"}
+            "nameVariations_fold": {"type": "text"},
+
+            "members": {
+                "type": "nested",
+                "properties": {
+                    "id_member_musicbrainz": {"type": "keyword"},
+                    "name": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 256}}},
+                    "instruments": {"type": "keyword"},
+                    "begin": {"type": "keyword"},
+                    "end": {"type": "keyword"},
+                    "ended": {"type": "boolean"},
+                    "disambiguation": {"type": "text"},
+                    "type": {"type": "keyword"},
+                    "gender": {"type": "keyword"},
+                    "urlAllmusic": {"type": "keyword"},
+                    "urlDiscogs": {"type": "keyword"},
+                    "urlWikidata": {"type": "keyword"},
+                    "urlWikipedia": {"type": "keyword"},
+                    "id_member_discogs": {"type": "keyword"},
+                    "realName": {"type": "text"},
+                    "abstract": {"type": "text"},
+                    "nameVariations": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 256}}},
+                    "urls": {"type": "keyword"},
+                    "urlEquipBoard": {"type": "keyword"},
+                    "equipments": {
+                        "type": "object",
+                        "enabled": False 
+                    },
+                    "subject": {"type": "keyword"},
+                    "birthDate": {"type": "date", "format": "yyyy||yyyy-MM-dd", "ignore_malformed": True},
+                    "dbp_abstract": {"type": "text"}
+                }
+            }
         }
     },
     "albums": {
@@ -72,12 +104,12 @@ INDEX_MAPPINGS = {
             "name": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 256}}},
             "urlWikipedia": {"type": "keyword"},
             "genre": {"type": "keyword"},
-            "length": {"type": "keyword"}, # Could be tricky to query ranges, maybe store seconds as integer?
+            "length": {"type": "keyword"},
             "urlAlbum": {"type": "keyword"},
-            "id_artist": {"type": "keyword"}, # Reference to the artist document ID
+            "id_artist": {"type": "keyword"},
             "rdf": {"type": "text", "index": False},
             "title": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 256}}},
-            "publicationDate": {"type": "date", "formats": ["yyyy", "yyyy-MM-dd||yyyy"]}, # Handle year-only format
+            "publicationDate": {"type": "date", "format": "yyyy||yyyy-MM-dd"},
             "urlAmazon": {"type": "keyword"},
             "urlITunes": {"type": "keyword"},
             "urlAllmusic": {"type": "keyword"},
@@ -88,7 +120,7 @@ INDEX_MAPPINGS = {
             "country": {"type": "keyword"},
             "disambiguation": {"type": "text"},
             "barcode": {"type": "keyword"},
-            "dateRelease": {"type": "date", "ignore_malformed": True}, # Handle potential formatting issues
+            "dateRelease": {"type": "date", "ignore_malformed": True}, 
             "language": {"type": "keyword"},
             "id_album_deezer": {"type": "keyword"},
             "urlDeezer": {"type": "keyword"},
@@ -97,7 +129,7 @@ INDEX_MAPPINGS = {
             "explicitLyrics": {"type": "boolean"},
             "upc": {"type": "keyword"},
             "id_album_discogs": {"type": "keyword"}
-            # Add other fields as needed
+            
         }
     },
     "songs": {
@@ -106,76 +138,100 @@ INDEX_MAPPINGS = {
             "position": {"type": "integer"},
             "lengthAlbum": {"type": "keyword"},
             "urlSong": {"type": "keyword"},
-            "lyrics": {"type": "text", "analyzer": "english"}, # Use appropriate analyzer for lyrics search
+            "lyrics": {"type": "text", "analyzer": "english"},
             "urlWikipedia": {"type": "keyword"},
-            "id_album": {"type": "keyword"}, # Reference to the album document ID
+            "id_album": {"type": "keyword"}, 
             "isClassic": {"type": "boolean"},
             "urlAllmusic": {"type": "keyword"},
             "urlMusicBrainz": {"type": "keyword"},
-            "publicationDateAlbum": {"type": "date", "formats": ["yyyy"]},
+            "publicationDateAlbum": {"type": "date", "format": "yyyy"},
             "albumTitle": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 256}}},
             "id_song_deezer": {"type": "keyword"},
             "isrc": {"type": "keyword"},
-            "length": {"type": "integer"}, # Assuming this is seconds
+            "length": {"type": "integer"}, 
             "explicitLyrics": {"type": "boolean"},
             "rank": {"type": "integer"},
-            "bpm": {"type": "float"}, # Beats per minute
+            "bpm": {"type": "float"}, 
             "gain": {"type": "float"},
             "preview": {"type": "keyword"},
             "availableCountries": {"type": "keyword"},
             "publicationDate": {"type": "date", "ignore_malformed": True},
-             "rdf": {"type": "text", "index": False}, # If rdf field exists
-             "urlPandora": {"type": "keyword"},
-             "urlITunes": {"type": "keyword"},
-             "urlSpotify": {"type": "keyword"},
-             "urlYouTube": {"type": "keyword"},
-             "urlAmazon": {"type": "keyword"},
-             "urlHypeMachine": {"type": "keyword"},
-             "urlGoEar": {"type": "keyword"},
-             "urlLastFm": {"type": "keyword"},
-             "id_song_musicbrainz": {"type": "keyword"},
-             "language": {"type": "keyword"},
-             "id_artist_deezer": {"type": "keyword"}, # Reference to artist
-             "id_album_deezer": {"type": "keyword"}, # Reference to album
-             "urlDeezer": {"type": "keyword"},
-             "language_detect": {"type": "keyword"},
-             "name": {"type": "keyword"}, # Song name again? Or Artist name? Clarify. Assume Artist Name here.
-             "title_accent_fold": {"type": "text"},
-            "chords_metadata": { # Use nested type for chords
+            "rdf": {"type": "text", "index": False},
+            "urlPandora": {"type": "keyword"},
+            "urlITunes": {"type": "keyword"},
+            "urlSpotify": {"type": "keyword"},
+            "urlYouTube": {"type": "keyword"},
+            "urlAmazon": {"type": "keyword"},
+            "urlHypeMachine": {"type": "keyword"},
+            "urlGoEar": {"type": "keyword"},
+            "urlLastFm": {"type": "keyword"},
+            "id_song_musicbrainz": {"type": "keyword"},
+            "language": {"type": "keyword"},
+            "id_artist_deezer": {"type": "keyword"}, 
+            "id_album_deezer": {"type": "keyword"}, 
+            "urlDeezer": {"type": "keyword"},
+            "language_detect": {"type": "keyword"},
+            "name": {"type": "keyword"}, 
+            "title_accent_fold": {"type": "text"},
+            
+            "chords_metadata": {
                 "type": "nested",
                 "properties": {
                     "confidence": {"type": "float"},
                     "duration": {"type": "float"},
                     "chordSequence": {
-                         "type": "nested", # Nested again for sequence items
+                         "type": "nested",
                          "properties": {
                              "start": {"type": "float"},
                              "end": {"type": "float"},
-                             "label": {"type": "keyword"} # Chord label
+                             "label": {"type": "keyword"}
                          }
                     }
                 }
             }
-            # Add other fields as needed
         }
     },
     "topics": {
         "properties": {
             "topic_id": {"type": "keyword"},
-            "terms": {"type": "keyword"} # Or text if you want to search within terms
+            "terms": {"type": "keyword"} 
         }
     },
     "emotions": {
          "properties": {
              "lastfm_id": {"type": "keyword"},
-             "song_id": {"type": "keyword"}, # Reference to the song document ID
+             "song_id": {"type": "keyword"},
              "emotions": {
-                 "type": "nested", # Use nested type for list of emotion objects
                  "properties": {
+                 "type": "nested", 
                     "emotion_tag": {"type": "keyword"},
                     "nbr_tags": {"type": "integer"}
                  }
             }
          }
+    },
+    "social_tags": {
+        "properties": {
+            "lastfm_id": {"type": "keyword"},
+            "socials": {
+                "type": "nested",
+                "properties": {
+                    "social_tag": {"type": "keyword"},
+                    "nbr_tags": {"type": "integer"}
+                }
+            }
+        }
+    },
+    "song_topics": {
+        "properties": {
+            "id_song": {"type": "keyword"},
+            "topics": {
+                "type": "nested",
+                "properties": {
+                    "topic": {"type": "keyword"},
+                    "probability": {"type": "float"}
+                }
+            }
+        }
     }
 }
