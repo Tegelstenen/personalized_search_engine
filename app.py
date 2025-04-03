@@ -238,12 +238,53 @@ def currently_playing():
         return jsonify(result), 401
 
 
+@app.route("/toggle-playback", methods=["POST"])
+@login_required
+def toggle_playback():
+    try:
+        sp = spotipy.Spotify(auth=current_user.spotify_token)
+        current_playback = sp.currently_playing()
+
+        if current_playback and current_playback.get("is_playing"):
+            sp.pause_playback()
+        else:
+            sp.start_playback()
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"Error toggling playback: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/next-track", methods=["POST"])
+@login_required
+def next_track():
+    try:
+        sp = spotipy.Spotify(auth=current_user.spotify_token)
+        sp.next_track()
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"Error skipping to next track: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/previous-track", methods=["POST"])
+@login_required
+def previous_track():
+    try:
+        sp = spotipy.Spotify(auth=current_user.spotify_token)
+        sp.previous_track()
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"Error going to previous track: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 def create_spotify_oauth():
     return SpotifyOAuth(
         client_id=SPOTIFY_CLIENT_ID,
         client_secret=SPOTIFY_CLIENT_SECRET,
-        redirect_uri="http://localhost:5000/callback",
-        scope="user-read-email user-read-private user-read-currently-playing",
+        redirect_uri="http://127.0.0.1:5000/callback",
+        scope="user-read-email user-read-private user-read-currently-playing user-modify-playback-state",
     )
 
 

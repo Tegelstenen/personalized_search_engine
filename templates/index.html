@@ -263,9 +263,41 @@
                     const response = await fetch('/toggle-playback', { method: 'POST' });
                     if (response.ok) {
                         updateCurrentlyPlaying(); // Update the UI immediately after toggling
+                    } else {
+                        const data = await response.json();
+                        console.error('Error toggling playback:', data.error);
                     }
                 } catch (error) {
                     console.error('Error toggling playback:', error);
+                }
+            });
+
+            // Add event listeners for previous and next buttons
+            document.querySelector('.fa-backward').parentElement.addEventListener('click', async function() {
+                try {
+                    const response = await fetch('/previous-track', { method: 'POST' });
+                    if (response.ok) {
+                        setTimeout(updateCurrentlyPlaying, 300); // Small delay to let Spotify update
+                    } else {
+                        const data = await response.json();
+                        console.error('Error going to previous track:', data.error);
+                    }
+                } catch (error) {
+                    console.error('Error going to previous track:', error);
+                }
+            });
+
+            document.querySelector('.fa-forward').parentElement.addEventListener('click', async function() {
+                try {
+                    const response = await fetch('/next-track', { method: 'POST' });
+                    if (response.ok) {
+                        setTimeout(updateCurrentlyPlaying, 300); // Small delay to let Spotify update
+                    } else {
+                        const data = await response.json();
+                        console.error('Error skipping to next track:', data.error);
+                    }
+                } catch (error) {
+                    console.error('Error skipping to next track:', error);
                 }
             });
         });
