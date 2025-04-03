@@ -279,6 +279,25 @@ def previous_track():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/set-volume", methods=["POST"])
+@login_required
+def set_volume():
+    try:
+        volume_percent = request.json.get("volume")
+        if volume_percent is None or not isinstance(volume_percent, int):
+            return jsonify({"error": "Invalid volume value"}), 400
+
+        volume_percent = max(
+            0, min(100, volume_percent)
+        )  # Ensure volume is between 0-100
+        sp = spotipy.Spotify(auth=current_user.spotify_token)
+        sp.volume(volume_percent)
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"Error setting volume: {str(e)}")
+        return jsonify({"error": "Failed to set volume"}), 401
+
+
 def create_spotify_oauth():
     return SpotifyOAuth(
         client_id=SPOTIFY_CLIENT_ID,

@@ -255,7 +255,7 @@
             });
 
             updateCurrentlyPlaying();
-            setInterval(updateCurrentlyPlaying, 1000); // Update every second
+            setInterval(updateCurrentlyPlaying, 3000); // Update every 3 seconds
 
             // Event listeners
             document.getElementById('play-pause-button').addEventListener('click', async function() {
@@ -263,12 +263,77 @@
                     const response = await fetch('/toggle-playback', { method: 'POST' });
                     if (response.ok) {
                         updateCurrentlyPlaying(); // Update the UI immediately after toggling
-                    } else {
-                        const data = await response.json();
-                        console.error('Error toggling playback:', data.error);
                     }
                 } catch (error) {
                     console.error('Error toggling playback:', error);
+                }
+            });
+
+            // Volume control
+            const volumeSlider = document.querySelector('.volume-slider');
+            const volumeProgress = document.querySelector('.volume-progress');
+            const volumeIcon = document.querySelector('.player-volume i');
+            let isDragging = false;
+            let previousVolume = 100;
+
+            function updateVolumeUI(volume) {
+                volumeProgress.style.width = `${volume}%`;
+                // Update volume icon based on level
+                volumeIcon.className = 'fas ' + (
+                    volume === 0 ? 'fa-volume-mute' :
+                    volume < 30 ? 'fa-volume-off' :
+                    volume < 70 ? 'fa-volume-down' :
+                    'fa-volume-up'
+                );
+            }
+
+            async function setVolume(volume) {
+                try {
+                    const response = await fetch('/set-volume', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ volume: Math.round(volume) })
+                    });
+                    if (!response.ok) {
+                        throw new Error('Failed to set volume');
+                    }
+                } catch (error) {
+                    console.error('Error setting volume:', error);
+                }
+            }
+
+            volumeSlider.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                const rect = volumeSlider.getBoundingClientRect();
+                const volume = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                updateVolumeUI(volume);
+                setVolume(volume);
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const rect = volumeSlider.getBoundingClientRect();
+                    const volume = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                    updateVolumeUI(volume);
+                    setVolume(volume);
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            volumeIcon.addEventListener('click', () => {
+                const currentWidth = parseFloat(volumeProgress.style.width) || 100;
+                if (currentWidth > 0) {
+                    previousVolume = currentWidth;
+                    updateVolumeUI(0);
+                    setVolume(0);
+                } else {
+                    updateVolumeUI(previousVolume);
+                    setVolume(previousVolume);
                 }
             });
 
