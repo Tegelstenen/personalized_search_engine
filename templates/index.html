@@ -51,7 +51,10 @@
     <div id="player-bar" class="player-bar">
         <div class="player-info">
             <img src="" alt="" id="player-album-art">
-            <span id="player-song-info"></span>
+            <div class="player-song-info">
+                <span id="player-song-name"></span>
+                <span id="player-artist-name"></span>
+            </div>
         </div>
         <div class="progress-container">
             <div class="player-controls">
@@ -109,12 +112,15 @@
                     }
 
                     const playerBar = document.getElementById('player-bar');
+
                     // Update song info and album art
-                    const playerSongInfo = document.getElementById('player-song-info');
+                    const playerSongName = document.getElementById('player-song-name');
+                    const playerArtistName = document.getElementById('player-artist-name');
                     if (trackName && artistName) {
                         playerBar.classList.remove('hidden');
                         playerBar.classList.add('visible');
-                        playerSongInfo.textContent = trackName + " by " + artistName;
+                        playerSongName.textContent = trackName;
+                        playerArtistName.textContent = artistName;
                     } else {
                         playerBar.classList.add('hidden');
                         playerBar.classList.remove('visible');

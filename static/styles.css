@@ -329,7 +329,7 @@ audio {
     z-index: 1000;
     height: 90px;
     box-sizing: border-box;
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: opacity 0.3s ease, transform 0.3s ease, scale 0.3s ease;
     opacity: 1;
     transform: translateY(0);
 }
@@ -362,36 +362,56 @@ audio {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    justify-content: center;
 }
 
 .player-info {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 4px;
+    width: 25%;
 }
 
 #player-album-art {
     width: 90px;
     height: 90px;
+    min-width: 90px;
+    min-height: 90px;
     background: #282828;
     border-radius: 4px;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-right: 12px;
 }
 
 .default-cover {
     color: #b3b3b3;
 }
 
-.player-song-info {
+#player-song-name {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    align-items: flex-start;
     color: #fff;
-    font-size: 14px;
+    font-size: 12px;
+    white-space: initial;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    margin-bottom: 2px;
+}
+
+#player-artist-name {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    color: #b3b3b3;
 }
 
 .player-controls {
