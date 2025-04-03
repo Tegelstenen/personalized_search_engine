@@ -18,5 +18,6 @@ dev-dependencies = [
     "isort",
     "pre-commit",
     "pyright",
-    "types-Flask"
+    "types-Flask",
+    "spotipy"
 ]

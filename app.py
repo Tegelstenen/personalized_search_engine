@@ -1,19 +1,34 @@
-# app.py
 import os
+from datetime import datetime, timezone
 
+import spotipy
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
-from flask import Flask, jsonify, redirect, render_template, request, url_for
-from flask_login import LoginManager, login_required, login_user, logout_user
+from flask import (Flask, jsonify, redirect, render_template, request, session,
+                   url_for)
+from flask_login import (LoginManager, current_user, login_required,
+                         login_user, logout_user)
+from spotipy.oauth2 import SpotifyOAuth
 
 from models import User, db
 
+# Load environment variables
 load_dotenv()
 
+# Elasticsearch + DB
 ES_LOCAL_PASSWORD = os.environ.get("ES_LOCAL_PASSWORD")
+SECRET_KEY = os.environ.get("SECRET_KEY")
 assert ES_LOCAL_PASSWORD is not None
+assert SECRET_KEY is not None
+
+# Spotify
+SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID")
+SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET")
+assert SPOTIFY_CLIENT_ID is not None
+assert SPOTIFY_CLIENT_SECRET is not None
 
 app = Flask(__name__)
+app.secret_key = SECRET_KEY
 
 # Connect to Elasticsearch
 # For local development
@@ -40,71 +55,6 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
-# Create sample data for testing (you can replace this with your own data later)
-def create_sample_data():
-    # Delete index if it already exists
-    if client.indices.exists(index=INDEX_NAME):
-        client.indices.delete(index=INDEX_NAME)
-
-    # Create index with mappings
-    client.indices.create(
-        index=INDEX_NAME,
-        body={
-            "mappings": {
-                "properties": {
-                    "title": {"type": "text"},
-                    "content": {"type": "text"},
-                    "author": {"type": "keyword"},
-                    "date": {"type": "date", "format": "yyyy-MM-dd"},
-                }
-            }
-        },
-    )
-
-    # Add some sample documents
-    documents = [
-        {
-            "title": "Introduction to Elasticsearch",
-            "content": "Elasticsearch is a distributed, RESTful search and analytics engine.",
-            "author": "Elastic",
-            "date": "2023-01-15",
-        },
-        {
-            "title": "Python Programming Basics",
-            "content": "Python is a high-level, interpreted programming language.",
-            "author": "Guido van Rossum",
-            "date": "2023-02-20",
-        },
-        {
-            "title": "Web Development with Flask",
-            "content": "Flask is a lightweight WSGI web application framework in Python.",
-            "author": "Armin Ronacher",
-            "date": "2023-03-10",
-        },
-        {
-            "title": "Data Analysis with Python",
-            "content": "Python is widely used for data analysis with libraries like Pandas and NumPy.",
-            "author": "Data Scientist",
-            "date": "2023-04-05",
-        },
-        {
-            "title": "Elasticsearch Query DSL",
-            "content": "The Query DSL is a JSON-based query language for Elasticsearch.",
-            "author": "Elastic",
-            "date": "2023-05-22",
-        },
-    ]
-
-    # Bulk index the documents
-    for i, doc in enumerate(documents):
-        client.index(index=INDEX_NAME, id=str(i + 1), document=doc)
-
-    # Refresh the index to make the documents available for search
-    client.indices.refresh(index=INDEX_NAME)
-
-    print(f"Created {len(documents)} sample documents in index '{INDEX_NAME}'")
-
-
 # Route for the home page with search form
 @app.route("/")
 @login_required
@@ -114,100 +64,127 @@ def home():
 
 # Route for search results
 @app.route("/search")
+@login_required
 def search():
     # Get the search query from the request parameters
     query = request.args.get("q", "")
 
     if not query:
-        return jsonify({"hits": []})
+        return jsonify({"tracks": [], "albums": [], "artists": []})
 
-    # Perform search in Elasticsearch
-    search_results = client.search(
-        index=INDEX_NAME,
-        body={
-            "query": {
-                "multi_match": {
-                    "query": query,
-                    "fields": [
-                        "title^2",
-                        "content",
-                        "author",
-                    ],  # ^2 boosts the title field
-                    "fuzziness": "AUTO",
-                }
-            },
-            "highlight": {"fields": {"title": {}, "content": {}}},
-        },
-    )
+    try:
+        # Create Spotify client with user's token
+        sp = spotipy.Spotify(auth=current_user.spotify_token)
 
-    # Format the search results
-    hits = []
-    for hit in search_results["hits"]["hits"]:
-        source = hit["_source"]
-        highlight = hit.get("highlight", {})
-
-        hits.append(
+        # Search tracks
+        track_results = sp.search(q=query, type="track", limit=5)
+        tracks = [
             {
-                "id": hit["_id"],
-                "title": highlight.get("title", [source["title"]])[0],
-                "content": highlight.get("content", [source["content"]])[0],
-                "author": source["author"],
-                "date": source["date"],
-                "score": hit["_score"],
+                "id": track["id"],
+                "name": track["name"],
+                "artist": track["artists"][0]["name"],
+                "album": track["album"]["name"],
+                "image": (
+                    track["album"]["images"][0]["url"]
+                    if track["album"]["images"]
+                    else None
+                ),
+                "preview_url": track["preview_url"],
+                "external_url": track["external_urls"]["spotify"],
             }
-        )
+            for track in track_results["tracks"]["items"]
+        ]
 
-    return jsonify({"hits": hits})
+        # Search albums
+        album_results = sp.search(q=query, type="album", limit=5)
+        albums = [
+            {
+                "id": album["id"],
+                "name": album["name"],
+                "artist": album["artists"][0]["name"],
+                "image": album["images"][0]["url"] if album["images"] else None,
+                "external_url": album["external_urls"]["spotify"],
+            }
+            for album in album_results["albums"]["items"]
+        ]
+
+        # Search artists
+        artist_results = sp.search(q=query, type="artist", limit=5)
+        artists = [
+            {
+                "id": artist["id"],
+                "name": artist["name"],
+                "image": artist["images"][0]["url"] if artist["images"] else None,
+                "genres": artist["genres"],
+                "external_url": artist["external_urls"]["spotify"],
+            }
+            for artist in artist_results["artists"]["items"]
+        ]
+
+        return jsonify({"tracks": tracks, "albums": albums, "artists": artists})
+
+    except Exception as e:
+        print(f"Error during search: {str(e)}")
+        # Token might be expired, clear it and redirect to login
+        current_user.spotify_token = None
+        db.session.commit()
+        return jsonify({"error": "Authentication error. Please log in again."}), 401
 
 
-# Route for user login
-@app.route("/login", methods=["GET", "POST"])
+# Route for login
+@app.route("/login")
 def login():
-    if request.method == "POST":
-        form_data = request.form
-        username = form_data.get("username")
-        password = form_data.get("password")
-
-        if not username or not password:
-            return jsonify(
-                {"success": False, "error": "Username and password are required"}
-            )
-
-        user = User.query.filter_by(username=username).first()
-        if user and user.password == password:
-            login_user(user)
-            return jsonify({"success": True, "redirect": url_for("home")})
-        else:
-            return jsonify({"success": False, "error": "Invalid username or password"})
-    return render_template("login.html", create_account_url=url_for("register"))
+    return render_template("login.html")
 
 
-# Route for user registration
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    if request.method != "POST":
-        return render_template("register.html")
+@app.route("/spotify-login")
+def spotify_login():
+    sp_oauth = create_spotify_oauth()
+    auth_url = sp_oauth.get_authorize_url()
+    return redirect(auth_url)
 
-    form_data = request.form
-    username = form_data.get("username")
-    password = form_data.get("password")
 
-    if not username or not password:
-        return jsonify(
-            {"success": False, "error": "Username and password are required"}
+@app.route("/callback")
+def spotify_callback():
+    sp_oauth = create_spotify_oauth()
+    code = request.args.get("code")
+
+    if not code:
+        return redirect(url_for("login"))
+
+    # Exchange code for token information
+    token_info = sp_oauth.get_access_token(code)
+
+    # Get user's Spotify profile
+    sp = spotipy.Spotify(auth=token_info["access_token"])
+    spotify_profile = sp.current_user()
+    # Find or create user
+    user = User.query.filter_by(spotify_id=spotify_profile["id"]).first()
+    if not user:
+        user = User(
+            spotify_id=spotify_profile["id"],
+            display_name=spotify_profile["display_name"],
+            email=spotify_profile.get("email"),
+            profile_image=(
+                spotify_profile.get("images")[0].get("url")
+                if spotify_profile.get("images")
+                else None
+            ),
         )
+        db.session.add(user)
 
-    if User.query.filter_by(username=username).first() is not None:
-        return jsonify({"success": False, "error": "Username already exists"})
-
-    new_user = User(username=username, password=password)  # type: ignore
-    db.session.add(new_user)
+    # Update user's Spotify information
+    user.spotify_token = token_info["access_token"]
+    user.spotify_refresh_token = token_info["refresh_token"]
+    user.spotify_token_expiry = datetime.fromtimestamp(
+        token_info["expires_at"], tz=timezone.utc
+    )
     db.session.commit()
-    login_user(new_user)
-    return jsonify({"success": True, "redirect": url_for("home")})
+    login_user(user)
+
+    return redirect(url_for("home"))
 
 
-# Route for user logout
 @app.route("/logout")
 @login_required
 def logout():
@@ -215,16 +192,65 @@ def logout():
     return redirect(url_for("login"))
 
 
-# Set the secret key for session management
-app.secret_key = os.environ.get("SECRET_KEY")
+@app.route("/currently-playing")
+@login_required
+def currently_playing():
+    result = {
+        "track_name": None,
+        "artist_name": None,
+        "image": None,
+        "is_playing": False,
+        "progress": 0,
+        "duration": 0,
+    }
+    try:
+        sp = spotipy.Spotify(auth=current_user.spotify_token)
+        current_track = sp.currently_playing()
+
+        if current_track is None:
+            return jsonify(result)
+
+        track_name = current_track.get("item", {}).get("name", "Unknown")
+        artist_name = (
+            current_track.get("item", {}).get("artists", [{}])[0].get("name", "Unknown")
+        )
+        image = (
+            current_track.get("item", {})
+            .get("album", {})
+            .get("images", [{}])[0]
+            .get("url", None)
+        )
+        is_playing = current_track.get("is_playing", False)
+        progress = current_track.get("progress_ms", 0)
+        duration = current_track.get("item", {}).get("duration_ms", 0)
+
+        result = {
+            "track_name": track_name,
+            "artist_name": artist_name,
+            "image": image,
+            "is_playing": is_playing,
+            "progress": progress,
+            "duration": duration,
+        }
+        return jsonify(result)
+    except Exception as e:
+        print(f"Error getting currently playing: {str(e)}")
+        return jsonify(result), 401
+
+
+def create_spotify_oauth():
+    return SpotifyOAuth(
+        client_id=SPOTIFY_CLIENT_ID,
+        client_secret=SPOTIFY_CLIENT_SECRET,
+        redirect_uri="http://localhost:5000/callback",
+        scope="user-read-email user-read-private user-read-currently-playing",
+    )
+
 
 if __name__ == "__main__":
     # Create database tables
     with app.app_context():
         db.create_all()
-
-    # Create sample data when the app starts
-    create_sample_data()
 
     # Run the Flask app
     app.run(debug=True)

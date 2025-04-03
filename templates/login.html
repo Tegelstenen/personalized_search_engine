@@ -3,42 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>Login with Spotify</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <h1>Login</h1>
-    <div class="error-message" id="error-message"></div>
-    <form id="login-form" action="/login" method="post">
-        <label for="username">Username:</label>
-        <input type="text" id="username" name="username" required><br>
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required><br>
-        <button type="submit">Login</button>
-    </form>
-    <p>Don't have an account? <a href="{{ create_account_url }}">Create one here</a>.</p>
-
-    <script>
-        document.getElementById('login-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-
-            try {
-                const response = await fetch('/login', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    window.location.href = data.redirect;
-                } else {
-                    document.getElementById('error-message').textContent = data.error;
-                }
-            } catch (error) {
-                document.getElementById('error-message').textContent = 'An error occurred. Please try again.';
-            }
-        });
-    </script>
+    <div class="login-container">
+        <h1>Welcome to Personalized Music Search</h1>
+        <p>Please log in with your Spotify account to continue</p>
+        <a href="{{ url_for('spotify_login') }}" class="spotify-login-button">
+            <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Spotify Logo" class="spotify-logo">
+            Login with Spotify
+        </a>
+    </div>
 </body>
 </html>
