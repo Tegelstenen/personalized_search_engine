@@ -12,3 +12,9 @@ wheels/
 .env
 
 elastic-start-local
+
+# PyCharm
+.idea
+
+# MacOS
+.DS_Store
