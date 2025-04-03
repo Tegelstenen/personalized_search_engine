@@ -298,12 +298,80 @@ def set_volume():
         return jsonify({"error": "Failed to set volume"}), 401
 
 
+@app.route("/top-tracks")
+@login_required
+def get_top_tracks():
+    try:
+        sp = spotipy.Spotify(auth=current_user.spotify_token)
+        results = sp.current_user_top_tracks(limit=6, time_range="short_term")
+        items = results["items"]
+
+        results = sp.current_user_top_tracks(limit=6, time_range="medium_term")
+        items += results["items"]
+
+        results = sp.current_user_top_tracks(limit=6, time_range="long_term")
+        items += results["items"]
+
+        tracks = [
+            {
+                "id": track["id"],
+                "name": track["name"],
+                "artist": track["artists"][0]["name"],
+                "album": track["album"]["name"],
+                "image": (
+                    track["album"]["images"][0]["url"]
+                    if track["album"]["images"]
+                    else None
+                ),
+                "preview_url": track["preview_url"],
+                "external_url": track["external_urls"]["spotify"],
+            }
+            for track in items
+        ]
+
+        return jsonify({"tracks": tracks[:8]})
+    except Exception as e:
+        print(f"Error fetching top tracks: {str(e)}")
+        return jsonify({"error": "Failed to fetch top tracks"}), 401
+
+
+@app.route("/top-artists")
+@login_required
+def get_top_artists():
+    try:
+        sp = spotipy.Spotify(auth=current_user.spotify_token)
+        results = sp.current_user_top_artists(limit=3, time_range="short_term")
+        items = results["items"]
+
+        results = sp.current_user_top_artists(limit=3, time_range="medium_term")
+        items += results["items"]
+
+        results = sp.current_user_top_artists(limit=3, time_range="long_term")
+        items += results["items"]
+
+        artists = [
+            {
+                "id": artist["id"],
+                "name": artist["name"],
+                "image": artist["images"][0]["url"] if artist["images"] else None,
+                "genres": artist["genres"],
+                "external_url": artist["external_urls"]["spotify"],
+            }
+            for artist in items
+        ]
+
+        return jsonify({"artists": artists[:4]})
+    except Exception as e:
+        print(f"Error fetching top artists: {str(e)}")
+        return jsonify({"error": "Failed to fetch top artists"}), 401
+
+
 def create_spotify_oauth():
     return SpotifyOAuth(
         client_id=SPOTIFY_CLIENT_ID,
         client_secret=SPOTIFY_CLIENT_SECRET,
         redirect_uri="http://127.0.0.1:5000/callback",
-        scope="user-read-email user-read-private user-read-currently-playing user-modify-playback-state",
+        scope="user-read-email user-read-private user-read-currently-playing user-modify-playback-state user-top-read",
     )
 
 

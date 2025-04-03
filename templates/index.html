@@ -10,7 +10,7 @@
 </head>
 <body>
     <div class="user-container">
-        <span>Welcome, {{ current_user.display_name }}</span>
+        <span>Welcome, <b>{{ current_user.display_name }}</b></span>
         {% if current_user.profile_image %}
             <img src="{{ current_user.profile_image }}" alt="Profile" class="profile-image">
         {% endif %}
@@ -21,9 +21,30 @@
         <h1>Personalized Spotify Music Search</h1>
         <p>Search for a song, album, or artist</p>
 
+        <button class="show-top-items-btn" id="show-top-items">
+            <i class="fas fa-chart-line"></i> See My Top Tracks & Artists
+        </button>
+
         <div class="search-container">
             <input type="text" id="search-input" placeholder="Search...">
             <button id="search-button">Search</button>
+        </div>
+
+        <div id="top-items-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <div class="user-top-content">
+                    <div class="top-tracks-section">
+                        <h2>Your Top Tracks</h2>
+                        <div id="top-tracks-container" class="top-items-grid"></div>
+                    </div>
+
+                    <div class="top-artists-section">
+                        <h2>Your Top Artists</h2>
+                        <div id="top-artists-container" class="top-items-grid"></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div id="loading">Searching...</div>
@@ -88,6 +109,41 @@
             const loadingDiv = document.getElementById('loading');
             const errorDiv = document.getElementById('error-message');
 
+            // Modal elements
+            const modal = document.getElementById('top-items-modal');
+            const showTopItemsBtn = document.getElementById('show-top-items');
+            const closeModal = document.querySelector('.close-modal');
+
+            // Modal controls
+            showTopItemsBtn.addEventListener('click', () => {
+                modal.style.display = 'block';
+                // Small delay to trigger the transition
+                setTimeout(() => {
+                    modal.classList.add('show');
+                }, 10);
+                // Fetch data when modal is opened
+                fetchTopTracks();
+                fetchTopArtists();
+            });
+
+            closeModal.addEventListener('click', () => {
+                modal.classList.remove('show');
+                // Wait for transition to complete before hiding
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                }, 300);
+            });
+
+            window.addEventListener('click', (event) => {
+                if (event.target === modal) {
+                    modal.classList.remove('show');
+                    // Wait for transition to complete before hiding
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                    }, 300);
+                }
+            });
+
             // Functions
             function formatTime(ms) {
                 const seconds = Math.floor(ms / 1000);
@@ -108,6 +164,7 @@
                     const duration = data.duration;
 
                     if (response.status === 401) {
+                        window.location.href = '/login';
                         return;
                     }
 
@@ -229,14 +286,22 @@
                         return;
                     }
 
+                    // Show sections only if they have results
+                    const tracksSection = document.getElementById('tracks-section');
+                    const albumsSection = document.getElementById('albums-section');
+                    const artistsSection = document.getElementById('artists-section');
+
                     document.getElementById('tracks-results').innerHTML =
                         data.tracks.map(createTrackCard).join('') || '<p>No tracks found</p>';
+                    tracksSection.style.display = data.tracks.length > 0 ? 'block' : 'none';
 
                     document.getElementById('albums-results').innerHTML =
                         data.albums.map(createAlbumCard).join('') || '<p>No albums found</p>';
+                    albumsSection.style.display = data.albums.length > 0 ? 'block' : 'none';
 
                     document.getElementById('artists-results').innerHTML =
                         data.artists.map(createArtistCard).join('') || '<p>No artists found</p>';
+                    artistsSection.style.display = data.artists.length > 0 ? 'block' : 'none';
 
                     resultsDiv.style.display = 'block';
                 } catch (error) {
@@ -365,6 +430,72 @@
                     console.error('Error skipping to next track:', error);
                 }
             });
+
+            // Create minimal card for top tracks
+            function createTopTrackCard(track) {
+                return `
+                    <div class="top-item-card">
+                        <img src="${track.image || '/static/default-album.png'}" alt="${track.name}" class="top-item-image">
+                        <div class="top-item-content">
+                            <h3>${track.name}</h3>
+                            <p>${track.artist}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Create minimal card for top artists
+            function createTopArtistCard(artist) {
+                return `
+                    <div class="top-item-card">
+                        <img src="${artist.image || '/static/default-artist.png'}" alt="${artist.name}" class="top-item-image">
+                        <div class="top-item-content">
+                            <h3>${artist.name}</h3>
+                            <p>${artist.genres[0] || ''}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Function to fetch and display top tracks
+            async function fetchTopTracks() {
+                try {
+                    const response = await fetch('/top-tracks');
+                    const data = await response.json();
+
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return;
+                    }
+
+                    const container = document.getElementById('top-tracks-container');
+                    container.innerHTML = data.tracks.map(createTopTrackCard).join('');
+                } catch (error) {
+                    console.error('Error fetching top tracks:', error);
+                }
+            }
+
+            // Function to fetch and display top artists
+            async function fetchTopArtists() {
+                try {
+                    const response = await fetch('/top-artists');
+                    const data = await response.json();
+
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return;
+                    }
+
+                    const container = document.getElementById('top-artists-container');
+                    container.innerHTML = data.artists.map(createTopArtistCard).join('');
+                } catch (error) {
+                    console.error('Error fetching top artists:', error);
+                }
+            }
+
+            // Fetch top tracks and artists when page loads
+            fetchTopTracks();
+            fetchTopArtists();
         });
     </script>
 </body>
