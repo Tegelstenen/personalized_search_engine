@@ -4,124 +4,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Elasticsearch Search Engine</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        h1 {
-            color: #1a0dab;
-            text-align: center;
-        }
-        .search-container {
-            margin: 30px 0;
-            text-align: center;
-        }
-        #search-input {
-            width: 70%;
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #dfe1e5;
-            border-radius: 24px;
-        }
-        #search-button {
-            padding: 10px 20px;
-            background-color: #1a0dab;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-left: 10px;
-        }
-        .results {
-            margin-top: 20px;
-        }
-        .result {
-            margin-bottom: 20px;
-            padding: 15px;
-            border: 1px solid #dfe1e5;
-            border-radius: 8px;
-        }
-        .result-title {
-            color: #1a0dab;
-            font-size: 18px;
-            margin-bottom: 5px;
-        }
-        .result-content {
-            margin-bottom: 10px;
-        }
-        .result-meta {
-            color: #70757a;
-            font-size: 14px;
-        }
-        .highlight {
-            background-color: #ffffd0;
-            font-weight: bold;
-        }
-        #loading {
-            text-align: center;
-            display: none;
-        }
-        .artist-result {
-            border-left: 4px solid #1976d2;
-            background-color: #f5f9ff;
-        }
-        .album-result {
-            border-left: 4px solid #388e3c;
-            background-color: #f5fff7;
-        }
-        .song-result {
-            border-left: 4px solid #e53935;
-            background-color: #fff5f5;
-        }
-        .topic-result {
-            border-left: 4px solid #7b1fa2;
-            background-color: #f9f5ff;
-        }
-        .emotion-result {
-            border-left: 4px solid #ff9800;
-            background-color: #fffaf0;
-        }
-        .result-type {
-            display: inline-block;
-            padding: 2px 8px;
-            background-color: #f0f0f0;
-            border-radius: 12px;
-            font-size: 12px;
-        }
-        .result-genre {
-            color: #333;
-        }
-        .result-artist {
-            color: #333;
-        }
-        .result-year {
-            color: #333;
-        }
-        .result-album {
-            color: #333;
-        }
-        .result-meta {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-    </style>
+    <title>Spotify Personalized Music Search</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 </head>
 <body>
-    <h1>Simple Elasticsearch Search Engine</h1>
-    
-    <div class="search-container">
-        <input type="text" id="search-input" placeholder="Search...">
-        <button id="search-button">Search</button>
+    <div class="user-container">
+        <span>Welcome, <b>{{ current_user.display_name }}</b></span>
+        {% if current_user.profile_image %}
+            <img src="{{ current_user.profile_image }}" alt="Profile" class="profile-image">
+        {% endif %}
+        <a href="{{ url_for('logout') }}" class="logout-button">Logout</a>
     </div>
-    
-    <div id="loading">Searching...</div>
-    
-    <div id="results" class="results"></div>
+
+    <div class="main-content">
+        <h1>Personalized Spotify Music Search</h1>
+        <p>Search for a song, album, or artist</p>
+
+        <button class="show-top-items-btn" id="show-top-items">
+            <i class="fas fa-chart-line"></i> See My Top Tracks & Artists
+        </button>
+
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="Search...">
+            <button id="search-button">Search</button>
+        </div>
+
+        <div id="top-items-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <div class="user-top-content">
+                    <div class="top-tracks-section">
+                        <h2>Your Top Tracks</h2>
+                        <div id="top-tracks-container" class="top-items-grid"></div>
+                    </div>
+
+                    <div class="top-artists-section">
+                        <h2>Your Top Artists</h2>
+                        <div id="top-artists-container" class="top-items-grid"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="loading">Searching...</div>
+
+        <div id="error-message" class="error-message"></div>
+
+        <div id="results" class="results">
+            <div id="tracks-section" class="section">
+                <h2>Tracks</h2>
+                <div id="tracks-results" class="results-grid"></div>
+            </div>
+
+            <div id="albums-section" class="section">
+                <h2>Albums</h2>
+                <div id="albums-results" class="results-grid"></div>
+            </div>
+
+            <div id="artists-section" class="section">
+                <h2>Artists</h2>
+                <div id="artists-results" class="results-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="player-bar" class="player-bar">
+        <div class="player-info">
+            <img src="" alt="" id="player-album-art">
+            <div class="player-song-info">
+                <span id="player-song-name"></span>
+                <span id="player-artist-name"></span>
+            </div>
+        </div>
+        <div class="progress-container">
+            <div class="player-controls">
+                <button class="control-button"><i class="fas fa-backward"></i></button>
+                <button class="control-button play-button" id="play-pause-button">
+                    <i class="fas fa-play" id="play-pause-icon"></i>
+                </button>
+                <button class="control-button"><i class="fas fa-forward"></i></button>
+            </div>
+            <div class="progress-bar">
+                <div class="progress" id="song-progress"></div>
+                <div class="time-info">
+                    <span id="current-time">0:00</span>
+                    <span id="total-time">0:00</span>
+                </div>
+            </div>
+        </div>
+        <div class="player-volume">
+            <i class="fas fa-volume-up"></i>
+            <div class="volume-slider">
+                <div class="volume-progress"></div>
+            </div>
+        </div>
+    </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -129,122 +107,395 @@
             const searchButton = document.getElementById('search-button');
             const resultsDiv = document.getElementById('results');
             const loadingDiv = document.getElementById('loading');
-            
-            // Function to render different result types
-            function renderResult(hit) {
-                const source = hit.source;
-                
-                switch(hit.type) {
-                    case 'artists':
-                        return `
-                            <div class="result artist-result">
-                                <div class="result-title">${hit.title}</div>
-                                <div class="result-content">${hit.content}</div>
-                                <div class="result-meta">
-                                    <span class="result-type">Artist</span>
-                                    ${source.genre ? `<span class="result-genre">Genre: ${source.genre}</span>` : ''}
-                                </div>
-                            </div>
-                        `;
-                    case 'albums':
-                        return `
-                            <div class="result album-result">
-                                <div class="result-title">${hit.title}</div>
-                                <div class="result-content">${hit.content}</div>
-                                <div class="result-meta">
-                                    <span class="result-type">Album</span>
-                                    ${source.artist_name ? `<span class="result-artist">Artist: ${source.artist_name}</span>` : ''}
-                                    ${source.release_year ? `<span class="result-year">Released: ${source.release_year}</span>` : ''}
-                                </div>
-                            </div>
-                        `;
-                    case 'songs':
-                        return `
-                            <div class="result song-result">
-                                <div class="result-title">${hit.title}</div>
-                                <div class="result-content">${hit.content}</div>
-                                <div class="result-meta">
-                                    <span class="result-type">Song</span>
-                                    ${source.artist_name ? `<span class="result-artist">Artist: ${source.artist_name}</span>` : ''}
-                                    ${source.album_name ? `<span class="result-album">Album: ${source.album_name}</span>` : ''}
-                                </div>
-                            </div>
-                        `;
-                    case 'topics':
-                        return `
-                            <div class="result topic-result">
-                                <div class="result-title">${hit.title}</div>
-                                <div class="result-content">${hit.content}</div>
-                                <div class="result-meta">
-                                    <span class="result-type">Topic</span>
-                                </div>
-                            </div>
-                        `;
-                    case 'emotions':
-                        return `
-                            <div class="result emotion-result">
-                                <div class="result-title">${hit.title}</div>
-                                <div class="result-content">${hit.content}</div>
-                                <div class="result-meta">
-                                    <span class="result-type">Emotion</span>
-                                </div>
-                            </div>
-                        `;
-                    default:
-                        return `
-                            <div class="result">
-                                <div class="result-title">${hit.title}</div>
-                                <div class="result-content">${hit.content}</div>
-                                <div class="result-meta">
-                                    <span class="result-type">${hit.type}</span>
-                                </div>
-                            </div>
-                        `;
+            const errorDiv = document.getElementById('error-message');
+
+            // Modal elements
+            const modal = document.getElementById('top-items-modal');
+            const showTopItemsBtn = document.getElementById('show-top-items');
+            const closeModal = document.querySelector('.close-modal');
+
+            // Modal controls
+            showTopItemsBtn.addEventListener('click', () => {
+                modal.style.display = 'block';
+                // Small delay to trigger the transition
+                setTimeout(() => {
+                    modal.classList.add('show');
+                }, 10);
+                // Fetch data when modal is opened
+                fetchTopTracks();
+                fetchTopArtists();
+            });
+
+            closeModal.addEventListener('click', () => {
+                modal.classList.remove('show');
+                // Wait for transition to complete before hiding
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                }, 300);
+            });
+
+            window.addEventListener('click', (event) => {
+                if (event.target === modal) {
+                    modal.classList.remove('show');
+                    // Wait for transition to complete before hiding
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                    }, 300);
+                }
+            });
+
+            // Functions
+            function formatTime(ms) {
+                const seconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = seconds % 60;
+                return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+            }
+
+            async function updateCurrentlyPlaying() {
+                try {
+                    const response = await fetch('/currently-playing');
+                    const data = await response.json();
+                    const trackName = data.track_name;
+                    const artistName = data.artist_name;
+                    const image = data.image;
+                    const isPlaying = data.is_playing;
+                    const progress = data.progress;
+                    const duration = data.duration;
+
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return;
+                    }
+
+                    const playerBar = document.getElementById('player-bar');
+
+                    // Update song info and album art
+                    const playerSongName = document.getElementById('player-song-name');
+                    const playerArtistName = document.getElementById('player-artist-name');
+                    if (trackName && artistName) {
+                        playerBar.classList.remove('hidden');
+                        playerBar.classList.add('visible');
+                        playerSongName.textContent = trackName;
+                        playerArtistName.textContent = artistName;
+                    } else {
+                        playerBar.classList.add('hidden');
+                        playerBar.classList.remove('visible');
+                    }
+
+                    const playerAlbumArt = document.getElementById('player-album-art');
+                    if (image) {
+                        playerAlbumArt.src = image;
+                    }
+
+                    // Update play/pause button
+                    const playPauseIcon = document.getElementById('play-pause-icon');
+                    if (isPlaying) {
+                        playPauseIcon.classList.remove('fa-play');
+                        playPauseIcon.classList.add('fa-pause');
+                    } else {
+                        playPauseIcon.classList.remove('fa-pause');
+                        playPauseIcon.classList.add('fa-play');
+                    }
+
+                    // Update progress bar
+                    const progressBar = document.getElementById('song-progress');
+                    if (duration > 0) {
+                        const progressPercent = (progress / duration) * 100;
+                        progressBar.style.width = `${progressPercent}%`;
+                    } else {
+                        progressBar.style.width = '0%';
+                    }
+
+                    // Update time displays
+                    document.getElementById('current-time').textContent = formatTime(progress);
+                    document.getElementById('total-time').textContent = formatTime(duration);
+
+                } catch (error) {
+                    console.error('Error updating player:', error);
                 }
             }
-            
-            // Function to perform search
+
+            function createTrackCard(track) {
+                return `
+                    <div class="card">
+                        <img src="${track.image || '/static/default-album.png'}" alt="${track.name}" class="card-image">
+                        <div class="card-content">
+                            <h3>${track.name}</h3>
+                            <p>Artist: ${track.artist}</p>
+                            <p>Album: ${track.album}</p>
+                            ${track.preview_url ?
+                                `<audio controls src="${track.preview_url}"></audio>` :
+                                '<p class="no-preview">No preview available</p>'
+                            }
+                            <a href="${track.external_url}" target="_blank" class="spotify-link">Open in Spotify</a>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function createAlbumCard(album) {
+                return `
+                    <div class="card">
+                        <img src="${album.image || '/static/default-album.png'}" alt="${album.name}" class="card-image">
+                        <div class="card-content">
+                            <h3>${album.name}</h3>
+                            <p>Artist: ${album.artist}</p>
+                            <a href="${album.external_url}" target="_blank" class="spotify-link">Open in Spotify</a>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function createArtistCard(artist) {
+                return `
+                    <div class="card">
+                        <img src="${artist.image || '/static/default-artist.png'}" alt="${artist.name}" class="card-image">
+                        <div class="card-content">
+                            <h3>${artist.name}</h3>
+                            <p>Genres: ${artist.genres.join(', ') || 'N/A'}</p>
+                            <a href="${artist.external_url}" target="_blank" class="spotify-link">Open in Spotify</a>
+                        </div>
+                    </div>
+                `;
+            }
+
             async function performSearch() {
                 const query = searchInput.value.trim();
-                
+
                 if (!query) {
-                    resultsDiv.innerHTML = '';
+                    resultsDiv.style.display = 'none';
                     return;
                 }
-                
-                // Show loading indicator
+
                 loadingDiv.style.display = 'block';
-                resultsDiv.innerHTML = '';
-                
+                resultsDiv.style.display = 'none';
+                errorDiv.textContent = '';
+
                 try {
-                    // Send search request to the server
                     const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
                     const data = await response.json();
-                    
-                    // Display search results
-                    if (data.hits.length > 0) {
-                        const resultsHtml = data.hits.map(hit => renderResult(hit)).join('');
-                        resultsDiv.innerHTML = resultsHtml;
-                    } else {
-                        resultsDiv.innerHTML = '<p>No results found.</p>';
+
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return;
                     }
+
+                    if (data.error) {
+                        errorDiv.textContent = data.error;
+                        return;
+                    }
+
+                    // Show sections only if they have results
+                    const tracksSection = document.getElementById('tracks-section');
+                    const albumsSection = document.getElementById('albums-section');
+                    const artistsSection = document.getElementById('artists-section');
+
+                    document.getElementById('tracks-results').innerHTML =
+                        data.tracks.map(createTrackCard).join('') || '<p>No tracks found</p>';
+                    tracksSection.style.display = data.tracks.length > 0 ? 'block' : 'none';
+
+                    document.getElementById('albums-results').innerHTML =
+                        data.albums.map(createAlbumCard).join('') || '<p>No albums found</p>';
+                    albumsSection.style.display = data.albums.length > 0 ? 'block' : 'none';
+
+                    document.getElementById('artists-results').innerHTML =
+                        data.artists.map(createArtistCard).join('') || '<p>No artists found</p>';
+                    artistsSection.style.display = data.artists.length > 0 ? 'block' : 'none';
+
+                    resultsDiv.style.display = 'block';
                 } catch (error) {
-                    console.error('Error performing search:', error);
-                    resultsDiv.innerHTML = '<p>An error occurred while searching. Please try again.</p>';
+                    errorDiv.textContent = 'An error occurred while searching. Please try again.';
                 } finally {
-                    // Hide loading indicator
                     loadingDiv.style.display = 'none';
                 }
             }
-            
-            // Add event listeners
+
+            // Event listeners and updates
             searchButton.addEventListener('click', performSearch);
-            
             searchInput.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     performSearch();
                 }
             });
+
+            updateCurrentlyPlaying();
+            setInterval(updateCurrentlyPlaying, 3000); // Update every 3 seconds
+
+            // Event listeners
+            document.getElementById('play-pause-button').addEventListener('click', async function() {
+                try {
+                    const response = await fetch('/toggle-playback', { method: 'POST' });
+                    if (response.ok) {
+                        updateCurrentlyPlaying(); // Update the UI immediately after toggling
+                    }
+                } catch (error) {
+                    console.error('Error toggling playback:', error);
+                }
+            });
+
+            // Volume control
+            const volumeSlider = document.querySelector('.volume-slider');
+            const volumeProgress = document.querySelector('.volume-progress');
+            const volumeIcon = document.querySelector('.player-volume i');
+            let isDragging = false;
+            let previousVolume = 100;
+
+            function updateVolumeUI(volume) {
+                volumeProgress.style.width = `${volume}%`;
+                // Update volume icon based on level
+                volumeIcon.className = 'fas ' + (
+                    volume === 0 ? 'fa-volume-mute' :
+                    volume < 30 ? 'fa-volume-off' :
+                    volume < 70 ? 'fa-volume-down' :
+                    'fa-volume-up'
+                );
+            }
+
+            async function setVolume(volume) {
+                try {
+                    const response = await fetch('/set-volume', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ volume: Math.round(volume) })
+                    });
+                    if (!response.ok) {
+                        throw new Error('Failed to set volume');
+                    }
+                } catch (error) {
+                    console.error('Error setting volume:', error);
+                }
+            }
+
+            volumeSlider.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                const rect = volumeSlider.getBoundingClientRect();
+                const volume = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                updateVolumeUI(volume);
+                setVolume(volume);
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const rect = volumeSlider.getBoundingClientRect();
+                    const volume = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                    updateVolumeUI(volume);
+                    setVolume(volume);
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            volumeIcon.addEventListener('click', () => {
+                const currentWidth = parseFloat(volumeProgress.style.width) || 100;
+                if (currentWidth > 0) {
+                    previousVolume = currentWidth;
+                    updateVolumeUI(0);
+                    setVolume(0);
+                } else {
+                    updateVolumeUI(previousVolume);
+                    setVolume(previousVolume);
+                }
+            });
+
+            // Add event listeners for previous and next buttons
+            document.querySelector('.fa-backward').parentElement.addEventListener('click', async function() {
+                try {
+                    const response = await fetch('/previous-track', { method: 'POST' });
+                    if (response.ok) {
+                        setTimeout(updateCurrentlyPlaying, 300); // Small delay to let Spotify update
+                    } else {
+                        const data = await response.json();
+                        console.error('Error going to previous track:', data.error);
+                    }
+                } catch (error) {
+                    console.error('Error going to previous track:', error);
+                }
+            });
+
+            document.querySelector('.fa-forward').parentElement.addEventListener('click', async function() {
+                try {
+                    const response = await fetch('/next-track', { method: 'POST' });
+                    if (response.ok) {
+                        setTimeout(updateCurrentlyPlaying, 300); // Small delay to let Spotify update
+                    } else {
+                        const data = await response.json();
+                        console.error('Error skipping to next track:', data.error);
+                    }
+                } catch (error) {
+                    console.error('Error skipping to next track:', error);
+                }
+            });
+
+            // Create minimal card for top tracks
+            function createTopTrackCard(track) {
+                return `
+                    <div class="top-item-card">
+                        <img src="${track.image || '/static/default-album.png'}" alt="${track.name}" class="top-item-image">
+                        <div class="top-item-content">
+                            <h3>${track.name}</h3>
+                            <p>${track.artist}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Create minimal card for top artists
+            function createTopArtistCard(artist) {
+                return `
+                    <div class="top-item-card">
+                        <img src="${artist.image || '/static/default-artist.png'}" alt="${artist.name}" class="top-item-image">
+                        <div class="top-item-content">
+                            <h3>${artist.name}</h3>
+                            <p>${artist.genres[0] || ''}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Function to fetch and display top tracks
+            async function fetchTopTracks() {
+                try {
+                    const response = await fetch('/top-tracks');
+                    const data = await response.json();
+
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return;
+                    }
+
+                    const container = document.getElementById('top-tracks-container');
+                    container.innerHTML = data.tracks.map(createTopTrackCard).join('');
+                } catch (error) {
+                    console.error('Error fetching top tracks:', error);
+                }
+            }
+
+            // Function to fetch and display top artists
+            async function fetchTopArtists() {
+                try {
+                    const response = await fetch('/top-artists');
+                    const data = await response.json();
+
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return;
+                    }
+
+                    const container = document.getElementById('top-artists-container');
+                    container.innerHTML = data.artists.map(createTopArtistCard).join('');
+                } catch (error) {
+                    console.error('Error fetching top artists:', error);
+                }
+            }
+
+            // Fetch top tracks and artists when page loads
+            fetchTopTracks();
+            fetchTopArtists();
         });
     </script>
 </body>

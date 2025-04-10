@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login with Spotify</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="login-container">
+        <h1>Welcome to Personalized Music Search</h1>
+        <p>Please log in with your Spotify account to continue</p>
+        <a href="{{ url_for('spotify_login') }}" class="spotify-login-button">
+            <img src="https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png" alt="Spotify Logo" class="spotify-logo">
+            Login with Spotify
+        </a>
+    </div>
+</body>
+</html>
