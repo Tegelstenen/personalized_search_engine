@@ -52,19 +52,15 @@
         <div id="error-message" class="error-message"></div>
 
         <div id="results" class="results">
-            <div id="tracks-section" class="section">
-                <h2>Tracks</h2>
-                <div id="tracks-results" class="results-grid"></div>
-            </div>
+            <div id="ranked-results"></div>
+        </div>
 
-            <div id="albums-section" class="section">
-                <h2>Albums</h2>
-                <div id="albums-results" class="results-grid"></div>
-            </div>
-
-            <div id="artists-section" class="section">
-                <h2>Artists</h2>
-                <div id="artists-results" class="results-grid"></div>
+        <!-- Metadata Modal -->
+        <div id="metadata-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-metadata-modal">&times;</span>
+                <h2>Result Details</h2>
+                <div id="metadata-content"></div>
             </div>
         </div>
     </div>
@@ -108,6 +104,202 @@
             const resultsDiv = document.getElementById('results');
             const loadingDiv = document.getElementById('loading');
             const errorDiv = document.getElementById('error-message');
+            const rankedResultsDiv = document.getElementById('ranked-results');
+
+            // Metadata Modal elements
+            const metadataModal = document.getElementById('metadata-modal');
+            const closeMetadataModal = document.querySelector('.close-metadata-modal');
+
+            // Close metadata modal when clicking the close button or outside
+            closeMetadataModal.addEventListener('click', () => {
+                metadataModal.classList.remove('show');
+                setTimeout(() => {
+                    metadataModal.style.display = 'none';
+                }, 300);
+            });
+
+            window.addEventListener('click', (event) => {
+                if (event.target === metadataModal) {
+                    metadataModal.classList.remove('show');
+                    setTimeout(() => {
+                        metadataModal.style.display = 'none';
+                    }, 300);
+                }
+            });
+
+            function showMetadata(result) {
+                const metadataContent = document.getElementById('metadata-content');
+                let content = '';
+
+                // Format metadata based on result type
+                switch(result.type) {
+                    case 'artists':
+                        // Get the preferred URL based on priority
+                        let artistUrl = '';
+                        let artistData = result.source.member || result.source;
+                        console.log(result);
+                        if (artistData.urlWikipedia) {
+                            artistUrl = artistData.urlWikipedia;
+                        } else if (artistData.urlWikidata) {
+                            artistUrl = artistData.urlWikidata;
+                        } else if (artistData.urls && artistData.urls.length > 0) {
+                            artistUrl = artistData.urls[0];
+                        }
+
+                        let instruments = artistData.instruments ? artistData.instruments.map(instrument =>
+                            instrument.charAt(0).toUpperCase() + instrument.slice(1)).join(', ') : '';
+
+                        content = `
+                            <h3>${result.source.member ? 'Artist Information' : 'Band Information'}</h3>
+                            <p><strong>Name:</strong> ${result.title}</p>
+                            ${artistData.realName && artistData.realName !== artistData.name ?
+                                `<p><strong>Real Name:</strong> ${artistData.realName}</p>` : ''}
+                            ${artistData.dbp_abstract ?
+                                `<p><strong>Biography:</strong> ${artistData.dbp_abstract}</p>` :
+                                artistData.abstract ?
+                                `<p><strong>Biography:</strong> ${artistData.abstract}</p>` : ''}
+                            ${artistUrl ? `<p><strong>More Info:</strong> <a href="${artistUrl}" target="_blank">${artistUrl}</a></p>` : ''}
+                            ${instruments ?
+                                `<p><strong>Instruments:</strong> ${instruments}</p>` : ''}
+                            ${artistData.birthDate ? `<p><strong>Birth Date:</strong> ${artistData.birthDate}</p>` : ''}
+                            ${artistData.subject ? `<p><strong>Categories:</strong> ${artistData.subject.join(', ')}</p>` : ''}
+                            ${artistData.nameVariations && artistData.nameVariations.length > 0 ?
+                                `<p><strong>Also Known As:</strong> ${artistData.nameVariations.join(', ')}</p>` : ''}
+                            <div id="artist-songs" class="artist-songs">
+                                <h4>Songs found on Spotify:</h4>
+                                <div class="songs-list">Loading...</div>
+                            </div>`;
+
+                        // Display the content immediately
+                        metadataContent.innerHTML = content;
+                        metadataModal.style.display = 'block';
+                        setTimeout(() => {
+                            metadataModal.classList.add('show');
+                        }, 10);
+                        // Fetch and display the artist's songs
+                        fetch(`/artist-songs/${encodeURIComponent(result.title)}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                const songsList = document.querySelector('.songs-list');
+                                if (!songsList) return; // Modal might be closed
+
+                                if (data.error) {
+                                    songsList.innerHTML = `<p class="error">${data.error}</p>`;
+                                    return;
+                                }
+                                if (!data.songs || data.songs.length === 0) {
+                                    songsList.innerHTML = '<p>No songs found</p>';
+                                    return;
+                                }
+                                songsList.innerHTML = `
+                                    <div class="songs-grid">
+                                        ${data.songs.map(song => `
+                                            <div class="song-item">
+                                                <img src="${song.image}" alt="${song.title}" class="song-image">
+                                                <div class="song-info">
+                                                    <h5>${song.title}</h5>
+                                                    <p>${song.album}</p>
+                                                    <button class="play-song-btn" data-uri="${song.external_url.split('track/')[1]}">
+                                                        <i class="fas fa-play"></i> Play
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                `;
+
+                                // Add event listeners for play buttons
+                                const playButtons = document.querySelectorAll('.play-song-btn');
+                                playButtons.forEach(button => {
+                                    button.addEventListener('click', async (e) => {
+                                        e.preventDefault();
+                                        const trackId = button.dataset.uri;
+                                        try {
+                                            const response = await fetch('/play-track', {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json'
+                                                },
+                                                body: JSON.stringify({ track_id: trackId })
+                                            });
+                                            if (!response.ok) {
+                                                throw new Error('Failed to play track');
+                                            }
+                                            // Update the currently playing display
+                                            setTimeout(updateCurrentlyPlaying, 500);
+                                        } catch (error) {
+                                            console.error('Error playing track:', error);
+                                        }
+                                    });
+                                });
+                            })
+                            .catch(error => {
+                                console.error('Error fetching songs:', error);
+                                const songsList = document.querySelector('.songs-list');
+                                if (songsList) {
+                                    songsList.innerHTML = '<p class="error">Failed to load songs</p>';
+                                }
+                            });
+                        break;
+
+                    case 'albums':
+                        content = `
+                            <h3>Album Information</h3>
+                            <p><strong>Title:</strong> ${result.title}</p>
+                            ${result.source.genre ? `<p><strong>Genre:</strong> ${result.source.genre}</p>` : ''}
+                            ${result.source.dateRelease ? `<p><strong>Release Date:</strong> ${result.source.dateRelease}</p>` : ''}
+                            ${result.source.country ? `<p><strong>Country:</strong> ${result.source.country}</p>` : ''}
+                        `;
+                        metadataContent.innerHTML = content;
+                        metadataModal.style.display = 'block';
+                        setTimeout(() => {
+                            metadataModal.classList.add('show');
+                        }, 10);
+                        break;
+
+                    case 'songs':
+                        content = `
+                            <h3>Song Information</h3>
+                            <p><strong>Title:</strong> ${result.title}</p>
+                            ${result.source.albumTitle ? `<p><strong>Album:</strong> ${result.source.albumTitle}</p>` : ''}
+                            ${result.source.album_genre ? `<p><strong>Genre:</strong> ${result.source.album_genre}</p>` : ''}
+                            ${result.source.bpm ? `<p><strong>BPM:</strong> ${result.source.bpm}</p>` : ''}
+                            ${result.source.language ? `<p><strong>Language:</strong> ${result.source.language}</p>` : ''}
+                            ${result.source.lyrics ? `<div class="lyrics"><strong>Lyrics:</strong><br>${result.source.lyrics}</div>` : ''}
+                        `;
+                        metadataContent.innerHTML = content;
+                        metadataModal.style.display = 'block';
+                        setTimeout(() => {
+                            metadataModal.classList.add('show');
+                        }, 10);
+                        break;
+                }
+            }
+
+            function displayRankedResults(hits) {
+                rankedResultsDiv.innerHTML = '';
+
+                const resultsList = document.createElement('div');
+                resultsList.className = 'ranked-results-list';
+
+                hits.forEach((hit, index) => {
+                    const resultItem = document.createElement('div');
+                    resultItem.className = 'ranked-result-item';
+                    resultItem.innerHTML = `
+                        <span class="rank">${index + 1}</span>
+                        <span class="type ${hit.type}">${hit.type}</span>
+                        <span class="title">${hit.title}</span>
+                        <span class="snippet">${hit.content || ''}</span>
+                    `;
+
+                    // Add click event to show metadata
+                    resultItem.addEventListener('click', () => showMetadata(hit));
+
+                    resultsList.appendChild(resultItem);
+                });
+
+                rankedResultsDiv.appendChild(resultsList);
+            }
 
             // Modal elements
             const modal = document.getElementById('top-items-modal');
@@ -216,50 +408,6 @@
                 }
             }
 
-            function createTrackCard(track) {
-                return `
-                    <div class="card">
-                        <img src="${track.image || '/static/default-album.png'}" alt="${track.name}" class="card-image">
-                        <div class="card-content">
-                            <h3>${track.name}</h3>
-                            <p>Artist: ${track.artist}</p>
-                            <p>Album: ${track.album}</p>
-                            ${track.preview_url ?
-                                `<audio controls src="${track.preview_url}"></audio>` :
-                                '<p class="no-preview">No preview available</p>'
-                            }
-                            <a href="${track.external_url}" target="_blank" class="spotify-link">Open in Spotify</a>
-                        </div>
-                    </div>
-                `;
-            }
-
-            function createAlbumCard(album) {
-                return `
-                    <div class="card">
-                        <img src="${album.image || '/static/default-album.png'}" alt="${album.name}" class="card-image">
-                        <div class="card-content">
-                            <h3>${album.name}</h3>
-                            <p>Artist: ${album.artist}</p>
-                            <a href="${album.external_url}" target="_blank" class="spotify-link">Open in Spotify</a>
-                        </div>
-                    </div>
-                `;
-            }
-
-            function createArtistCard(artist) {
-                return `
-                    <div class="card">
-                        <img src="${artist.image || '/static/default-artist.png'}" alt="${artist.name}" class="card-image">
-                        <div class="card-content">
-                            <h3>${artist.name}</h3>
-                            <p>Genres: ${artist.genres.join(', ') || 'N/A'}</p>
-                            <a href="${artist.external_url}" target="_blank" class="spotify-link">Open in Spotify</a>
-                        </div>
-                    </div>
-                `;
-            }
-
             async function performSearch() {
                 const query = searchInput.value.trim();
 
@@ -286,23 +434,7 @@
                         return;
                     }
 
-                    // Show sections only if they have results
-                    const tracksSection = document.getElementById('tracks-section');
-                    const albumsSection = document.getElementById('albums-section');
-                    const artistsSection = document.getElementById('artists-section');
-
-                    document.getElementById('tracks-results').innerHTML =
-                        data.tracks.map(createTrackCard).join('') || '<p>No tracks found</p>';
-                    tracksSection.style.display = data.tracks.length > 0 ? 'block' : 'none';
-
-                    document.getElementById('albums-results').innerHTML =
-                        data.albums.map(createAlbumCard).join('') || '<p>No albums found</p>';
-                    albumsSection.style.display = data.albums.length > 0 ? 'block' : 'none';
-
-                    document.getElementById('artists-results').innerHTML =
-                        data.artists.map(createArtistCard).join('') || '<p>No artists found</p>';
-                    artistsSection.style.display = data.artists.length > 0 ? 'block' : 'none';
-
+                    displayRankedResults(data.hits);
                     resultsDiv.style.display = 'block';
                 } catch (error) {
                     errorDiv.textContent = 'An error occurred while searching. Please try again.';
