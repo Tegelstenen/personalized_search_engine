@@ -18,3 +18,5 @@ elastic-start-local
 
 # MacOS
 .DS_Store
+
+corpus

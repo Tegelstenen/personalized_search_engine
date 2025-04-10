@@ -65,6 +65,50 @@
             text-align: center;
             display: none;
         }
+        .artist-result {
+            border-left: 4px solid #1976d2;
+            background-color: #f5f9ff;
+        }
+        .album-result {
+            border-left: 4px solid #388e3c;
+            background-color: #f5fff7;
+        }
+        .song-result {
+            border-left: 4px solid #e53935;
+            background-color: #fff5f5;
+        }
+        .topic-result {
+            border-left: 4px solid #7b1fa2;
+            background-color: #f9f5ff;
+        }
+        .emotion-result {
+            border-left: 4px solid #ff9800;
+            background-color: #fffaf0;
+        }
+        .result-type {
+            display: inline-block;
+            padding: 2px 8px;
+            background-color: #f0f0f0;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        .result-genre {
+            color: #333;
+        }
+        .result-artist {
+            color: #333;
+        }
+        .result-year {
+            color: #333;
+        }
+        .result-album {
+            color: #333;
+        }
+        .result-meta {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
     </style>
 </head>
 <body>
@@ -86,6 +130,79 @@
             const resultsDiv = document.getElementById('results');
             const loadingDiv = document.getElementById('loading');
             
+            // Function to render different result types
+            function renderResult(hit) {
+                const source = hit.source;
+                
+                switch(hit.type) {
+                    case 'artists':
+                        return `
+                            <div class="result artist-result">
+                                <div class="result-title">${hit.title}</div>
+                                <div class="result-content">${hit.content}</div>
+                                <div class="result-meta">
+                                    <span class="result-type">Artist</span>
+                                    ${source.genre ? `<span class="result-genre">Genre: ${source.genre}</span>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    case 'albums':
+                        return `
+                            <div class="result album-result">
+                                <div class="result-title">${hit.title}</div>
+                                <div class="result-content">${hit.content}</div>
+                                <div class="result-meta">
+                                    <span class="result-type">Album</span>
+                                    ${source.artist_name ? `<span class="result-artist">Artist: ${source.artist_name}</span>` : ''}
+                                    ${source.release_year ? `<span class="result-year">Released: ${source.release_year}</span>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    case 'songs':
+                        return `
+                            <div class="result song-result">
+                                <div class="result-title">${hit.title}</div>
+                                <div class="result-content">${hit.content}</div>
+                                <div class="result-meta">
+                                    <span class="result-type">Song</span>
+                                    ${source.artist_name ? `<span class="result-artist">Artist: ${source.artist_name}</span>` : ''}
+                                    ${source.album_name ? `<span class="result-album">Album: ${source.album_name}</span>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    case 'topics':
+                        return `
+                            <div class="result topic-result">
+                                <div class="result-title">${hit.title}</div>
+                                <div class="result-content">${hit.content}</div>
+                                <div class="result-meta">
+                                    <span class="result-type">Topic</span>
+                                </div>
+                            </div>
+                        `;
+                    case 'emotions':
+                        return `
+                            <div class="result emotion-result">
+                                <div class="result-title">${hit.title}</div>
+                                <div class="result-content">${hit.content}</div>
+                                <div class="result-meta">
+                                    <span class="result-type">Emotion</span>
+                                </div>
+                            </div>
+                        `;
+                    default:
+                        return `
+                            <div class="result">
+                                <div class="result-title">${hit.title}</div>
+                                <div class="result-content">${hit.content}</div>
+                                <div class="result-meta">
+                                    <span class="result-type">${hit.type}</span>
+                                </div>
+                            </div>
+                        `;
+                }
+            }
+            
             // Function to perform search
             async function performSearch() {
                 const query = searchInput.value.trim();
@@ -106,14 +223,7 @@
                     
                     // Display search results
                     if (data.hits.length > 0) {
-                        const resultsHtml = data.hits.map(hit => `
-                            <div class="result">
-                                <div class="result-title">${hit.title}</div>
-                                <div class="result-content">${hit.content}</div>
-                                <div class="result-meta">Author: ${hit.author} | Date: ${hit.date}</div>
-                            </div>
-                        `).join('');
-                        
+                        const resultsHtml = data.hits.map(hit => renderResult(hit)).join('');
                         resultsDiv.innerHTML = resultsHtml;
                     } else {
                         resultsDiv.innerHTML = '<p>No results found.</p>';
