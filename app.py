@@ -1,3 +1,5 @@
+# type: ignore
+
 import os
 from datetime import datetime, timezone
 
@@ -5,17 +7,31 @@ import spotipy
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
 from flask import Flask, jsonify, redirect, render_template, request, url_for
-from flask_login import (LoginManager, current_user, login_required,
-                         login_user, logout_user)
+from flask_login import (
+    LoginManager,
+    current_user,
+    login_required,
+    login_user,
+    logout_user,
+)
 from spotipy.oauth2 import SpotifyOAuth
 
-from src.elastic_utils import (clean_and_deduplicate_results,
-                               create_album_query, create_artist_query,
-                               create_song_query, process_album_results,
-                               process_artist_results, process_song_results)
+from src.elastic_utils import (
+    clean_and_deduplicate_results,
+    create_album_query,
+    create_artist_query,
+    create_song_query,
+    process_album_results,
+    process_artist_results,
+    process_song_results,
+)
 from src.models import User, db
-from src.spotipy_utils import (format_album_data, format_artist_data,
-                               format_track_data)
+from src.spotipy_utils import (
+    format_album_data,
+    format_artist_data,
+    format_track_data,
+    remove_duplicates,
+)
 
 # Load environment variables
 load_dotenv()
@@ -82,6 +98,7 @@ def search():
     # Search and process albums
     album_results = client.search(index="albums", body=create_album_query(query))
     hits.extend(process_album_results(hit) for hit in album_results["hits"]["hits"])
+
     # Search and process songs
     song_results = client.search(index="songs", body=create_song_query(query))
     hits.extend(process_song_results(hit) for hit in song_results["hits"]["hits"])
@@ -271,6 +288,8 @@ def get_top_tracks():
             items.extend(results["items"])
 
         tracks = [format_track_data(track) for track in items]
+        tracks = remove_duplicates(tracks)
+
         return jsonify({"tracks": tracks[:8]})
     except Exception as e:
         print(f"Error fetching top tracks: {str(e)}")
@@ -289,6 +308,7 @@ def get_top_artists():
             items.extend(results["items"])
 
         artists = [format_artist_data(artist) for artist in items]
+        artists = remove_duplicates(artists)
         return jsonify({"artists": artists[:4]})
     except Exception as e:
         print(f"Error fetching top artists: {str(e)}")

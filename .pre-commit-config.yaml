@@ -28,6 +28,7 @@ repos:
       entry: isort
       language: python
       types: [python]
+      args: ["--profile=black"]
       files: \.py$
 
     - id: pyright

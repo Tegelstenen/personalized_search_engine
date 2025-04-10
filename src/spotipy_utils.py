@@ -34,3 +34,11 @@ def format_artist_data(artist: dict) -> dict:
         "popularity": artist.get("popularity"),
         "external_url": artist["external_urls"]["spotify"],
     }
+
+
+def remove_duplicates(items: list) -> list:
+    unique_items = {}
+    for item in items:
+        if item["id"] not in unique_items:
+            unique_items[item["id"]] = item
+    return list(unique_items.values())
