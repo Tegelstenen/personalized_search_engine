@@ -1,0 +1,56 @@
+repos:
+  # Pre-commit hooks (built-in hooks)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+        # Trims trailing whitespace.
+      - id: trailing-whitespace
+      - id: detect-private-key
+        # Makes sure files end in a newline and only a newline.
+      - id: end-of-file-fixer
+      - id: forbid-submodules
+      - id: requirements-txt-fixer
+      - id: no-commit-to-branch
+        args: ['--branch', 'master']
+
+  # Run black, isort and pyright
+  - repo: local
+    hooks:
+    - id: black
+      name: black
+      entry: black
+      language: python
+      types: [python]
+      files: \.py$
+
+    - id: isort
+      name: isort
+      entry: isort
+      language: python
+      types: [python]
+      args: ["--profile=black"]
+      files: \.py$
+
+    - id: pyright
+      name: pyright
+      entry: pyright
+      language: node
+      types: [python]
+      files: \.py$
+
+  # Add mdformat for markdown files
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.17
+    hooks:
+      - id: mdformat
+        additional_dependencies:
+          - mdformat-gfm  # GitHub Flavored Markdown support
+          - mdformat-frontmatter  # YAML frontmatter support
+        files: \.(md|markdown)$
+        exclude: ^thirdparty_licenses/licenses\.md$
+
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.15.0  # Use the latest stable version
+    hooks:
+      - id: pyupgrade
+        args: ["--py311-plus"]

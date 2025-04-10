@@ -14,3 +14,7 @@ wheels/
 elastic-start-local
 
 corpus
+instance
+
+# logs
+*.log
