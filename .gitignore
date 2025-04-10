@@ -20,3 +20,7 @@ elastic-start-local
 .DS_Store
 
 corpus
+instance
+
+# logs
+*.log

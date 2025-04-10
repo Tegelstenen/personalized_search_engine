@@ -4,247 +4,189 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Elasticsearch Search Engine</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        h1 {
-            color: #1a0dab;
-            text-align: center;
-        }
-        .search-container {
-            margin: 30px 0;
-            text-align: center;
-        }
-        #search-input {
-            width: 70%;
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #dfe1e5;
-            border-radius: 24px;
-        }
-        #search-button {
-            padding: 10px 20px;
-            background-color: #1a0dab;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-left: 10px;
-        }
-        .results {
-            margin-top: 20px;
-        }
-        .result {
-            margin-bottom: 20px;
-            padding: 15px;
-            border: 1px solid #dfe1e5;
-            border-radius: 8px;
-        }
-        .result-title {
-            color: #1a0dab;
-            font-size: 18px;
-            margin-bottom: 5px;
-        }
-        .result-content {
-            margin-bottom: 10px;
-        }
-        .result-meta {
-            color: #70757a;
-            font-size: 14px;
-        }
-        .highlight {
-            background-color: #ffffd0;
-            font-weight: bold;
-        }
-        #loading {
-            text-align: center;
-            display: none;
-        }
-        .artist-result {
-            border-left: 4px solid #1976d2;
-            background-color: #f5f9ff;
-        }
-        .album-result {
-            border-left: 4px solid #388e3c;
-            background-color: #f5fff7;
-        }
-        .song-result {
-            border-left: 4px solid #e53935;
-            background-color: #fff5f5;
-        }
-        .topic-result {
-            border-left: 4px solid #7b1fa2;
-            background-color: #f9f5ff;
-        }
-        .emotion-result {
-            border-left: 4px solid #ff9800;
-            background-color: #fffaf0;
-        }
-        .result-type {
-            display: inline-block;
-            padding: 2px 8px;
-            background-color: #f0f0f0;
-            border-radius: 12px;
-            font-size: 12px;
-        }
-        .result-genre {
-            color: #333;
-        }
-        .result-artist {
-            color: #333;
-        }
-        .result-year {
-            color: #333;
-        }
-        .result-album {
-            color: #333;
-        }
-        .result-meta {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-    </style>
+    <title>Spotify Personalized Music Search</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 </head>
 <body>
-    <h1>Simple Elasticsearch Search Engine</h1>
-    
-    <div class="search-container">
-        <input type="text" id="search-input" placeholder="Search...">
-        <button id="search-button">Search</button>
+    <div class="user-container">
+        <span>Welcome, <b>{{ current_user.display_name }}</b></span>
+        {% if current_user.profile_image %}
+            <img src="{{ current_user.profile_image }}" alt="Profile" class="profile-image">
+        {% endif %}
+        <a href="{{ url_for('logout') }}" class="logout-button">Logout</a>
     </div>
-    
-    <div id="loading">Searching...</div>
-    
-    <div id="results" class="results"></div>
 
+    <div class="main-content">
+        <h1>Personalized Spotify Music Search</h1>
+        <p>Search for a song, album, or artist</p>
+
+        <button class="show-top-items-btn" id="show-top-items">
+            <i class="fas fa-chart-line"></i> See My Top Tracks & Artists
+        </button>
+
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="Search...">
+            <button id="search-button">Search</button>
+        </div>
+
+        <div id="top-items-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <div class="user-top-content">
+                    <div class="top-tracks-section">
+                        <h2>Your Top Tracks</h2>
+                        <div id="top-tracks-container" class="top-items-grid"></div>
+                    </div>
+
+                    <div class="top-artists-section">
+                        <h2>Your Top Artists</h2>
+                        <div id="top-artists-container" class="top-items-grid"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="loading">Searching...</div>
+
+        <div id="error-message" class="error-message"></div>
+
+        <div id="results" class="results">
+            <div id="ranked-results"></div>
+        </div>
+
+        <!-- Metadata Modal -->
+        <div id="metadata-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-metadata-modal">&times;</span>
+                <div id="metadata-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="player-bar" class="player-bar">
+        <div class="player-info">
+            <img src="" alt="" id="player-album-art">
+            <div class="player-song-info">
+                <span id="player-song-name"></span>
+                <span id="player-artist-name"></span>
+            </div>
+        </div>
+        <div class="progress-container">
+            <div class="player-controls">
+                <button class="control-button"><i class="fas fa-backward"></i></button>
+                <button class="control-button play-button" id="play-pause-button">
+                    <i class="fas fa-play" id="play-pause-icon"></i>
+                </button>
+                <button class="control-button"><i class="fas fa-forward"></i></button>
+            </div>
+            <div class="progress-bar">
+                <div class="progress" id="song-progress"></div>
+                <div class="time-info">
+                    <span id="current-time">0:00</span>
+                    <span id="total-time">0:00</span>
+                </div>
+            </div>
+        </div>
+        <div class="player-volume">
+            <i class="fas fa-volume-up"></i>
+            <div class="volume-slider">
+                <div class="volume-progress"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/player.js"></script>
+    <script src="/static/js/metadata.js"></script>
+    <script src="/static/js/top-items.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('search-input');
             const searchButton = document.getElementById('search-button');
             const resultsDiv = document.getElementById('results');
             const loadingDiv = document.getElementById('loading');
-            
-            // Function to render different result types
-            function renderResult(hit) {
-                const source = hit.source;
-                
-                switch(hit.type) {
-                    case 'artists':
-                        return `
-                            <div class="result artist-result">
-                                <div class="result-title">${hit.title}</div>
-                                <div class="result-content">${hit.content}</div>
-                                <div class="result-meta">
-                                    <span class="result-type">Artist</span>
-                                    ${source.genre ? `<span class="result-genre">Genre: ${source.genre}</span>` : ''}
-                                </div>
-                            </div>
-                        `;
-                    case 'albums':
-                        return `
-                            <div class="result album-result">
-                                <div class="result-title">${hit.title}</div>
-                                <div class="result-content">${hit.content}</div>
-                                <div class="result-meta">
-                                    <span class="result-type">Album</span>
-                                    ${source.artist_name ? `<span class="result-artist">Artist: ${source.artist_name}</span>` : ''}
-                                    ${source.release_year ? `<span class="result-year">Released: ${source.release_year}</span>` : ''}
-                                </div>
-                            </div>
-                        `;
-                    case 'songs':
-                        return `
-                            <div class="result song-result">
-                                <div class="result-title">${hit.title}</div>
-                                <div class="result-content">${hit.content}</div>
-                                <div class="result-meta">
-                                    <span class="result-type">Song</span>
-                                    ${source.artist_name ? `<span class="result-artist">Artist: ${source.artist_name}</span>` : ''}
-                                    ${source.album_name ? `<span class="result-album">Album: ${source.album_name}</span>` : ''}
-                                </div>
-                            </div>
-                        `;
-                    case 'topics':
-                        return `
-                            <div class="result topic-result">
-                                <div class="result-title">${hit.title}</div>
-                                <div class="result-content">${hit.content}</div>
-                                <div class="result-meta">
-                                    <span class="result-type">Topic</span>
-                                </div>
-                            </div>
-                        `;
-                    case 'emotions':
-                        return `
-                            <div class="result emotion-result">
-                                <div class="result-title">${hit.title}</div>
-                                <div class="result-content">${hit.content}</div>
-                                <div class="result-meta">
-                                    <span class="result-type">Emotion</span>
-                                </div>
-                            </div>
-                        `;
-                    default:
-                        return `
-                            <div class="result">
-                                <div class="result-title">${hit.title}</div>
-                                <div class="result-content">${hit.content}</div>
-                                <div class="result-meta">
-                                    <span class="result-type">${hit.type}</span>
-                                </div>
-                            </div>
-                        `;
-                }
+            const errorDiv = document.getElementById('error-message');
+            const rankedResultsDiv = document.getElementById('ranked-results');
+
+            function displayRankedResults(hits) {
+                rankedResultsDiv.innerHTML = '';
+
+                const resultsList = document.createElement('div');
+                resultsList.className = 'ranked-results-list';
+
+                hits.forEach((hit, index) => {
+                    const resultItem = document.createElement('div');
+                    resultItem.className = 'ranked-result-item';
+                    resultItem.innerHTML = `
+                        <span class="rank">${index + 1}</span>
+                        <span class="type ${hit.type}">${hit.type}</span>
+                        <span class="title">${hit.title}</span>
+                        <span class="snippet">${hit.content || ''}</span>
+                    `;
+
+                    // Add click event to show metadata
+                    resultItem.addEventListener('click', () => {
+                        switch(hit.type) {
+                            case 'artists':
+                                window.metadataDisplay.displayArtistMetadata(hit);
+                                break;
+                            case 'albums':
+                                window.metadataDisplay.displayAlbumMetadata(hit);
+                                break;
+                            case 'songs':
+                                window.metadataDisplay.displaySongMetadata(hit);
+                                break;
+                        }
+                    });
+
+                    resultsList.appendChild(resultItem);
+                });
+
+                rankedResultsDiv.appendChild(resultsList);
             }
-            
-            // Function to perform search
-            async function performSearch() {
-                const query = searchInput.value.trim();
-                
-                if (!query) {
-                    resultsDiv.innerHTML = '';
-                    return;
-                }
-                
-                // Show loading indicator
-                loadingDiv.style.display = 'block';
-                resultsDiv.innerHTML = '';
-                
-                try {
-                    // Send search request to the server
-                    const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
-                    const data = await response.json();
-                    
-                    // Display search results
-                    if (data.hits.length > 0) {
-                        const resultsHtml = data.hits.map(hit => renderResult(hit)).join('');
-                        resultsDiv.innerHTML = resultsHtml;
-                    } else {
-                        resultsDiv.innerHTML = '<p>No results found.</p>';
-                    }
-                } catch (error) {
-                    console.error('Error performing search:', error);
-                    resultsDiv.innerHTML = '<p>An error occurred while searching. Please try again.</p>';
-                } finally {
-                    // Hide loading indicator
-                    loadingDiv.style.display = 'none';
-                }
-            }
-            
-            // Add event listeners
+
+            // Event listeners and updates
             searchButton.addEventListener('click', performSearch);
-            
             searchInput.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     performSearch();
                 }
             });
+
+            async function performSearch() {
+                const query = searchInput.value.trim();
+
+                if (!query) {
+                    resultsDiv.style.display = 'none';
+                    return;
+                }
+
+                loadingDiv.style.display = 'block';
+                resultsDiv.style.display = 'none';
+                errorDiv.textContent = '';
+
+                try {
+                    const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+                    const data = await response.json();
+
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return;
+                    }
+
+                    if (data.error) {
+                        errorDiv.textContent = data.error;
+                        return;
+                    }
+
+                    displayRankedResults(data.hits);
+                    resultsDiv.style.display = 'block';
+                } catch (error) {
+                    errorDiv.textContent = 'An error occurred while searching. Please try again.';
+                } finally {
+                    loadingDiv.style.display = 'none';
+                }
+            }
         });
     </script>
 </body>
