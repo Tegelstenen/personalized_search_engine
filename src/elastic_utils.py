@@ -1,6 +1,7 @@
 import re
 from collections import defaultdict
 
+
 def create_artist_query(query):
     """Create the Elasticsearch query for artists."""
     return {
@@ -19,12 +20,12 @@ def create_artist_query(query):
                                         "members.abstract^2",
                                         "members.dbp_abstract",
                                         "members.type",
-                                        "members.realName"
+                                        "members.realName",
                                     ],
-                                    "fuzziness": "AUTO"
+                                    "fuzziness": "AUTO",
                                 }
                             },
-                            "inner_hits": {}
+                            "inner_hits": {},
                         }
                     },
                     {
@@ -39,11 +40,11 @@ def create_artist_query(query):
                                 "genres",
                                 "type",
                                 "location.city",
-                                "location.country"
+                                "location.country",
                             ],
-                            "fuzziness": "AUTO"
+                            "fuzziness": "AUTO",
                         }
-                    }
+                    },
                 ]
             }
         },
@@ -54,10 +55,11 @@ def create_artist_query(query):
                 "abstract": {},
                 "dbp_abstract": {},
                 "genres": {},
-                "type": {}
+                "type": {},
             }
-        }
+        },
     }
+
 
 def create_album_query(query):
     """Create the Elasticsearch query for albums."""
@@ -65,24 +67,13 @@ def create_album_query(query):
         "query": {
             "multi_match": {
                 "query": query,
-                "fields": [
-                    "title^3",
-                    "name^3",
-                    "genre^2",
-                    "country",
-                    "language"
-                ],
-                "fuzziness": "AUTO"
+                "fields": ["title^3", "name^3", "genre^2", "country", "language"],
+                "fuzziness": "AUTO",
             }
         },
-        "highlight": {
-            "fields": {
-                "title": {},
-                "name": {},
-                "genre": {}
-            }
-        }
+        "highlight": {"fields": {"title": {}, "name": {}, "genre": {}}},
     }
+
 
 def create_song_query(query):
     """Create the Elasticsearch query for songs."""
@@ -96,9 +87,9 @@ def create_song_query(query):
                     "lyrics^2",
                     "album_genre^2",
                     "language",
-                    "summary"
+                    "summary",
                 ],
-                "fuzziness": "AUTO"
+                "fuzziness": "AUTO",
             }
         },
         "highlight": {
@@ -107,51 +98,52 @@ def create_song_query(query):
                 "name": {},
                 "lyrics": {},
                 "album_genre": {},
-                "summary": {}
+                "summary": {},
             }
-        }
+        },
     }
+
 
 def process_artist_results(hit):
     """Process artist search results including nested member matches."""
     results = []
-    source = hit['_source']
-    highlight = hit.get('highlight', {})
-    inner_hits = hit.get('inner_hits', {}).get('members', {}).get('hits', {}).get('hits', [])
+    source = hit["_source"]
+    highlight = hit.get("highlight", {})
+    inner_hits = (
+        hit.get("inner_hits", {}).get("members", {}).get("hits", {}).get("hits", [])
+    )
 
     # Process top-level artist match
     if highlight:
-        title = highlight.get('name', [source.get('name', "Unknown")])[0]
+        title = highlight.get("name", [source.get("name", "Unknown")])[0]
         snippet = next(
             (
                 highlight[field][0]
                 for field in ["abstract", "dbp_abstract", "genres"]
                 if field in highlight
             ),
-            source.get('abstract', source.get('dbp_abstract', ''))
+            source.get("abstract", source.get("dbp_abstract", "")),
         )
 
         results.append(
             {
-                "id": hit['_id'],
+                "id": hit["_id"],
                 "title": title,
                 "content": (
-                    f"{snippet[:200]}..."
-                    if snippet and len(snippet) > 200
-                    else snippet
+                    f"{snippet[:200]}..." if snippet and len(snippet) > 200 else snippet
                 ),
                 "type": "artists",
-                "score": hit['_score'],
+                "score": hit["_score"],
                 "source": source,
             }
         )
 
     # Process nested member matches
     for inner_hit in inner_hits:
-        member = inner_hit['_source']
-        title = member.get('name', 'Unknown Member')
-        snippet = member.get('dbp_abstract', member.get('abstract', ''))
-        if not snippet and member.get('nameVariations'):
+        member = inner_hit["_source"]
+        title = member.get("name", "Unknown Member")
+        snippet = member.get("dbp_abstract", member.get("abstract", ""))
+        if not snippet and member.get("nameVariations"):
             snippet = f"Also known as: {', '.join(member['nameVariations'])}"
 
         results.append(
@@ -159,76 +151,78 @@ def process_artist_results(hit):
                 "id": f"{hit['_id']}_{inner_hit['_nested']['offset']}",
                 "title": title,
                 "content": (
-                    f"{snippet[:200]}..."
-                    if snippet and len(snippet) > 200
-                    else snippet
+                    f"{snippet[:200]}..." if snippet and len(snippet) > 200 else snippet
                 ),
                 "type": "artists",
-                "score": inner_hit['_score'],
+                "score": inner_hit["_score"],
                 "source": {"member": member, "artist": source},
             }
         )
 
     return results
 
+
 def process_album_results(hit):
     """Process album search results."""
-    source = hit['_source']
-    highlight = hit.get('highlight', {})
+    source = hit["_source"]
+    highlight = hit.get("highlight", {})
 
-    title = highlight.get('title', highlight.get('name', [source.get('title', source.get('name', "Unknown"))]))[0]
+    title = highlight.get(
+        "title",
+        highlight.get("name", [source.get("title", source.get("name", "Unknown"))]),
+    )[0]
     snippet = next(
-        (
-            highlight[field][0]
-            for field in ["genre"]
-            if field in highlight
-        ),
-        source.get('genre', '')
+        (highlight[field][0] for field in ["genre"] if field in highlight),
+        source.get("genre", ""),
     )
 
     return {
-        "id": hit['_id'],
+        "id": hit["_id"],
         "title": title,
         "content": snippet,
         "type": "albums",
-        "score": hit['_score'],
-        "source": source
+        "score": hit["_score"],
+        "source": source,
     }
+
 
 def process_song_results(hit):
     """Process song search results."""
-    source = hit['_source']
-    highlight = hit.get('highlight', {})
+    source = hit["_source"]
+    highlight = hit.get("highlight", {})
 
-    title = highlight.get('title', highlight.get('name', [source.get('title', source.get('name', "Unknown"))]))[0]
+    title = highlight.get(
+        "title",
+        highlight.get("name", [source.get("title", source.get("name", "Unknown"))]),
+    )[0]
     snippet = next(
         (
             highlight[field][0]
             for field in ["lyrics", "summary", "album_genre"]
             if field in highlight
         ),
-        source.get('lyrics', source.get('summary', source.get('album_genre', '')))
+        source.get("lyrics", source.get("summary", source.get("album_genre", ""))),
     )
 
     return {
-        "id": hit['_id'],
+        "id": hit["_id"],
         "title": title,
         "content": (
-            f"{snippet[:200]}..."
-            if snippet and len(snippet) > 200
-            else snippet
+            f"{snippet[:200]}..." if snippet and len(snippet) > 200 else snippet
         ),
         "type": "songs",
-        "score": hit['_score'],
+        "score": hit["_score"],
         "source": source,
     }
+
 
 def remove_html_tags(text):
     """Remove HTML tags from text."""
     if not isinstance(text, str):
         return text
-    clean = re.compile('<.*?>')
-    return re.sub(clean, '', text)
+    clean = re.compile("<.*?>")
+    return re.sub(clean, "", text)
+
 
 def clean_and_deduplicate_results(hits):
     """Clean HTML tags and deduplicate results by category."""
@@ -237,17 +231,17 @@ def clean_and_deduplicate_results(hits):
 
     for hit in hits:
         # Clean HTML tags from title and content
-        hit['title'] = remove_html_tags(hit['title'])
-        hit['content'] = remove_html_tags(hit['content'])
+        hit["title"] = remove_html_tags(hit["title"])
+        hit["content"] = remove_html_tags(hit["content"])
 
         # Create a key for deduplication (type + cleaned title)
-        key = hit['title'].lower()
+        key = hit["title"].lower()
 
         # Only add if we haven't seen this title for this type
-        if key not in seen_titles[hit['type']]:
-            seen_titles[hit['type']].add(key)
+        if key not in seen_titles[hit["type"]]:
+            seen_titles[hit["type"]].add(key)
             cleaned_hits.append(hit)
 
     # Sort all hits by score
-    cleaned_hits.sort(key=lambda x: x['score'], reverse=True)
+    cleaned_hits.sort(key=lambda x: x["score"], reverse=True)
     return cleaned_hits

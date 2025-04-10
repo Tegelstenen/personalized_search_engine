@@ -4,22 +4,18 @@ from datetime import datetime, timezone
 import spotipy
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
-from flask import (Flask, jsonify, redirect, render_template, request,
-                   url_for)
+from flask import Flask, jsonify, redirect, render_template, request, url_for
 from flask_login import (LoginManager, current_user, login_required,
                          login_user, logout_user)
 from spotipy.oauth2 import SpotifyOAuth
 
-from models import User, db
-from src.elastic_utils import (
-    create_artist_query,
-    create_album_query,
-    create_song_query,
-    process_artist_results,
-    process_album_results,
-    process_song_results,
-    clean_and_deduplicate_results,
-)
+from src.elastic_utils import (clean_and_deduplicate_results,
+                               create_album_query, create_artist_query,
+                               create_song_query, process_album_results,
+                               process_artist_results, process_song_results)
+from src.models import User, db
+from src.spotipy_utils import (format_album_data, format_artist_data,
+                               format_track_data)
 
 # Load environment variables
 load_dotenv()
@@ -68,11 +64,11 @@ def home():
     return render_template("index.html")
 
 
-@app.route('/search')
+@app.route("/search")
 @login_required
 def search():
     """Handle search requests across artists, albums, and songs."""
-    query = request.args.get('q', '')
+    query = request.args.get("q", "")
     if not query:
         return jsonify({"hits": []})
 
@@ -80,17 +76,15 @@ def search():
 
     # Search and process artists
     artist_results = client.search(index="artists", body=create_artist_query(query))
-    for hit in artist_results['hits']['hits']:
+    for hit in artist_results["hits"]["hits"]:
         hits.extend(process_artist_results(hit))
 
     # Search and process albums
     album_results = client.search(index="albums", body=create_album_query(query))
-    hits.extend(
-        process_album_results(hit) for hit in album_results['hits']['hits']
-    )
+    hits.extend(process_album_results(hit) for hit in album_results["hits"]["hits"])
     # Search and process songs
     song_results = client.search(index="songs", body=create_song_query(query))
-    hits.extend(process_song_results(hit) for hit in song_results['hits']['hits'])
+    hits.extend(process_song_results(hit) for hit in song_results["hits"]["hits"])
 
     # Clean and deduplicate results
     cleaned_hits = clean_and_deduplicate_results(hits)
@@ -270,32 +264,13 @@ def set_volume():
 def get_top_tracks():
     try:
         sp = spotipy.Spotify(auth=current_user.spotify_token)
-        results = sp.current_user_top_tracks(limit=6, time_range="short_term")
-        items = results["items"]
+        items = []
 
-        results = sp.current_user_top_tracks(limit=6, time_range="medium_term")
-        items += results["items"]
+        for time_range in ["short_term", "medium_term", "long_term"]:
+            results = sp.current_user_top_tracks(limit=6, time_range=time_range)
+            items.extend(results["items"])
 
-        results = sp.current_user_top_tracks(limit=6, time_range="long_term")
-        items += results["items"]
-
-        tracks = [
-            {
-                "id": track["id"],
-                "name": track["name"],
-                "artist": track["artists"][0]["name"],
-                "album": track["album"]["name"],
-                "image": (
-                    track["album"]["images"][0]["url"]
-                    if track["album"]["images"]
-                    else None
-                ),
-                "preview_url": track["preview_url"],
-                "external_url": track["external_urls"]["spotify"],
-            }
-            for track in items
-        ]
-
+        tracks = [format_track_data(track) for track in items]
         return jsonify({"tracks": tracks[:8]})
     except Exception as e:
         print(f"Error fetching top tracks: {str(e)}")
@@ -307,26 +282,13 @@ def get_top_tracks():
 def get_top_artists():
     try:
         sp = spotipy.Spotify(auth=current_user.spotify_token)
-        results = sp.current_user_top_artists(limit=3, time_range="short_term")
-        items = results["items"]
+        items = []
 
-        results = sp.current_user_top_artists(limit=3, time_range="medium_term")
-        items += results["items"]
+        for time_range in ["short_term", "medium_term", "long_term"]:
+            results = sp.current_user_top_artists(limit=3, time_range=time_range)
+            items.extend(results["items"])
 
-        results = sp.current_user_top_artists(limit=3, time_range="long_term")
-        items += results["items"]
-
-        artists = [
-            {
-                "id": artist["id"],
-                "name": artist["name"],
-                "image": artist["images"][0]["url"] if artist["images"] else None,
-                "genres": artist["genres"],
-                "external_url": artist["external_urls"]["spotify"],
-            }
-            for artist in items
-        ]
-
+        artists = [format_artist_data(artist) for artist in items]
         return jsonify({"artists": artists[:4]})
     except Exception as e:
         print(f"Error fetching top artists: {str(e)}")
@@ -342,176 +304,111 @@ def create_spotify_oauth():
     )
 
 
-@app.route('/artist-songs/<artist_name>')
+@app.route("/artist-songs/<artist_name>")
 @login_required
 def get_artist_songs(artist_name):
     """Get top songs for a specific artist using Spotify API."""
     try:
         sp = spotipy.Spotify(auth=current_user.spotify_token)
+        results = sp.search(q=artist_name, type="artist", limit=1)
 
-        # First search for the artist
-        results = sp.search(q=artist_name, type='artist', limit=1)
-
-        if not results['artists']['items']:
+        if not results["artists"]["items"]:
             return jsonify({"error": "Artist not found"}), 404
 
-        artist_id = results['artists']['items'][0]['id']
-
-        # Get the artist's top tracks
+        artist_id = results["artists"]["items"][0]["id"]
         top_tracks = sp.artist_top_tracks(artist_id)
-
-        tracks = []
-        tracks.extend(
-            {
-                "id": track["id"],
-                "title": track["name"],
-                "artist": track["artists"][0]["name"],
-                "album": track["album"]["name"],
-                "image": (
-                    track["album"]["images"][0]["url"]
-                    if track["album"]["images"]
-                    else None
-                ),
-            }
-            for track in top_tracks['tracks'][:3]
-        )
+        tracks = [format_track_data(track) for track in top_tracks["tracks"][:3]]
         return jsonify({"tracks": tracks})
     except Exception as e:
         print(f"Error getting artist songs from Spotify: {str(e)}")
         return jsonify({"error": "Failed to fetch artist songs"}), 500
 
 
-@app.route('/play-track', methods=['POST'])
+@app.route("/play-track", methods=["POST"])
 @login_required
 def play_track():
     try:
         data = request.get_json()
-        track_id = data.get('track_id')
+        track_id = data.get("track_id")
 
         if not track_id:
-            return jsonify({'error': 'No track ID provided'}), 400
+            return jsonify({"error": "No track ID provided"}), 400
 
         sp = spotipy.Spotify(auth=current_user.spotify_token)
 
-        # Get the user's available devices
         devices = sp.devices()
+        if not devices["devices"]:
+            return jsonify({"error": "No active Spotify devices found"}), 400
 
-        if not devices['devices']:
-            return jsonify({'error': 'No active Spotify devices found'}), 400
-
-        # Use the first available device
-        device_id = devices['devices'][0]['id']
-
-        # Start playback on the selected device
-        sp.start_playback(device_id=device_id, uris=[f'spotify:track:{track_id}'])
-        return jsonify({'success': True})
+        device_id = devices["devices"][0]["id"]
+        sp.start_playback(device_id=device_id, uris=[f"spotify:track:{track_id}"])
+        return jsonify({"success": True})
 
     except Exception as e:
         print(f"Error playing track: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/get-spotify-track/<track_id>')
+@app.route("/get-spotify-track/<track_id>")
 @login_required
 def get_spotify_track(track_id):
     """Get a specific track from Spotify by its ID."""
     try:
         sp = spotipy.Spotify(auth=current_user.spotify_token)
         track = sp.track(track_id)
-
-        track_data = {
-            "id": track["id"],
-            "title": track["name"],
-            "artist": track["artists"][0]["name"],
-            "album": track["album"]["name"],
-            "image": track["album"]["images"][0]["url"] if track["album"]["images"] else None,
-        }
-
+        track_data = format_track_data(track)
         return jsonify({"track": track_data})
     except Exception as e:
         print(f"Error getting Spotify track: {str(e)}")
         return jsonify({"error": "Failed to fetch Spotify track"}), 500
 
 
-@app.route('/search-spotify-tracks/<title>')
+@app.route("/search-spotify-tracks/<title>")
 @login_required
 def search_spotify_tracks(title):
     """Search for tracks on Spotify by title and return top 3 matches."""
     try:
         sp = spotipy.Spotify(auth=current_user.spotify_token)
-        results = sp.search(q=title, type='track', limit=3)
-
-        tracks = []
-        tracks.extend(
-            {
-                "id": track["id"],
-                "title": track["name"],
-                "artist": track["artists"][0]["name"],
-                "album": track["album"]["name"],
-                "image": (
-                    track["album"]["images"][0]["url"]
-                    if track["album"]["images"]
-                    else None
-                ),
-            }
-            for track in results['tracks']['items']
-        )
+        results = sp.search(q=title, type="track", limit=3)
+        tracks = [format_track_data(track) for track in results["tracks"]["items"]]
         return jsonify({"tracks": tracks})
     except Exception as e:
         print(f"Error searching Spotify tracks: {str(e)}")
         return jsonify({"error": "Failed to search Spotify tracks"}), 500
 
 
-@app.route('/search-spotify-artist/<artist_name>')
+@app.route("/search-spotify-artist/<artist_name>")
 @login_required
 def search_spotify_artist(artist_name):
     """Search for an artist on Spotify and return the best match."""
     try:
         sp = spotipy.Spotify(auth=current_user.spotify_token)
-        results = sp.search(q=artist_name, type='artist', limit=1)
+        results = sp.search(q=artist_name, type="artist", limit=1)
 
-        if not results['artists']['items']:
+        if not results["artists"]["items"]:
             return jsonify({"error": "Artist not found"}), 404
 
-        artist = results['artists']['items'][0]
-        artist_data = {
-            "id": artist["id"],
-            "name": artist["name"],
-            "image": artist["images"][0]["url"] if artist["images"] else None,
-            "genres": artist["genres"],
-            "followers": artist["followers"]["total"],
-            "popularity": artist["popularity"],
-            "spotify_url": artist["external_urls"]["spotify"]
-        }
-
+        artist = results["artists"]["items"][0]
+        artist_data = format_artist_data(artist)
         return jsonify({"artist": artist_data})
     except Exception as e:
         print(f"Error searching Spotify artist: {str(e)}")
         return jsonify({"error": "Failed to search Spotify artist"}), 500
 
 
-@app.route('/search-spotify-album/<path:query>')
+@app.route("/search-spotify-album/<path:query>")
 @login_required
 def search_spotify_album(query):
     """Search for an album on Spotify and return the best match."""
     try:
         sp = spotipy.Spotify(auth=current_user.spotify_token)
-        results = sp.search(q=query, type='album', limit=1)
+        results = sp.search(q=query, type="album", limit=1)
 
-        if not results['albums']['items']:
+        if not results["albums"]["items"]:
             return jsonify({"error": "Album not found"}), 404
 
-        album = results['albums']['items'][0]
-        album_data = {
-            "id": album["id"],
-            "name": album["name"],
-            "artist": album["artists"][0]["name"],
-            "image": album["images"][0]["url"] if album["images"] else None,
-            "release_date": album["release_date"],
-            "total_tracks": album["total_tracks"],
-            "spotify_url": album["external_urls"]["spotify"]
-        }
-
+        album = results["albums"]["items"][0]
+        album_data = format_album_data(album)
         return jsonify({"album": album_data})
     except Exception as e:
         print(f"Error searching Spotify album: {str(e)}")

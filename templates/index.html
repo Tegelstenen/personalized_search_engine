@@ -200,7 +200,7 @@
                                                 <h5>${artist.name}</h5>
                                                 <p>${artist.genres.slice(0, 3).join(', ')}</p>
                                                 <p>${artist.followers.toLocaleString()} followers • ${artist.popularity}% popularity</p>
-                                                <button class="play-song-btn" onclick="window.open('${artist.spotify_url}', '_blank')">
+                                                <button class="play-song-btn" onclick="window.open('${artist.external_url}', '_blank')">
                                                     <i class="fab fa-spotify"></i> Open in Spotify
                                                 </button>
                                             </div>
@@ -283,7 +283,7 @@
                                                 <h5>${album.name}</h5>
                                                 <p>By ${album.artist}</p>
                                                 <p>${album.total_tracks} tracks • Released: ${album.release_date}</p>
-                                                <button class="play-song-btn" onclick="window.open('${album.spotify_url}', '_blank')">
+                                                <button class="play-song-btn" onclick="window.open('${album.external_url}', '_blank')">
                                                     <i class="fab fa-spotify"></i> Open in Spotify
                                                 </button>
                                             </div>
