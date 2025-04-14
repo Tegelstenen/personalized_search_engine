@@ -38,18 +38,26 @@ class MetadataDisplay {
         const artistData = result.source.member || result.source;
         const artistUrl = this.getArtistUrl(artistData);
         const instruments = this.formatInstruments(artistData.instruments);
+        const artistImage = result.image || '/static/default-artist.png';
 
         const content = `
-            <h3>${result.source.member ? 'Artist Information' : 'Band Information'}</h3>
-            <p><strong>Name:</strong> ${result.title}</p>
-            ${artistData.realName && artistData.realName !== artistData.name ?
-                `<p><strong>Real Name:</strong> ${artistData.realName}</p>` : ''}
-            ${this.getBiography(artistData)}
-            ${artistUrl ? `<p><strong>More Info:</strong> <a href="${artistUrl}" target="_blank">${artistUrl}</a></p>` : ''}
-            ${instruments ? `<p><strong>Instruments:</strong> ${instruments}</p>` : ''}
-            ${artistData.birthDate ? `<p><strong>Birth Date:</strong> ${artistData.birthDate}</p>` : ''}
-            ${artistData.subject ? `<p><strong>Categories:</strong> ${artistData.subject.join(', ')}</p>` : ''}
-            ${this.getNameVariations(artistData)}
+            <div class="metadata-header">
+                <img src="${artistImage}" alt="${result.title}" class="metadata-image artist-image">
+                <div class="metadata-title">
+                    <h3>${result.source.member ? 'Artist Information' : 'Band Information'}</h3>
+                    <h2>${result.title}</h2>
+                </div>
+            </div>
+            <div class="metadata-details">
+                ${artistData.realName && artistData.realName !== artistData.name ?
+                    `<p><strong>Real Name:</strong> ${artistData.realName}</p>` : ''}
+                ${this.getBiography(artistData)}
+                ${artistUrl ? `<p><strong>More Info:</strong> <a href="${artistUrl}" target="_blank">${artistUrl}</a></p>` : ''}
+                ${instruments ? `<p><strong>Instruments:</strong> ${instruments}</p>` : ''}
+                ${artistData.birthDate ? `<p><strong>Birth Date:</strong> ${artistData.birthDate}</p>` : ''}
+                ${artistData.subject ? `<p><strong>Categories:</strong> ${artistData.subject.join(', ')}</p>` : ''}
+                ${this.getNameVariations(artistData)}
+            </div>
             <div id="spotify-artist" class="spotify-match">
                 <h4>On Spotify</h4>
                 <div class="match-content">Loading...</div>
@@ -70,13 +78,22 @@ class MetadataDisplay {
     }
 
     async displayAlbumMetadata(result) {
+        const albumImage = result.image || '/static/default-album.png';
+        
         const content = `
-            <h3>Album Information</h3>
-            <p><strong>Title:</strong> ${result.title}</p>
-            <p><strong>Artist:</strong> ${result.source.name}</p>
-            ${result.source.genre ? `<p><strong>Genre:</strong> ${result.source.genre}</p>` : ''}
-            ${result.source.dateRelease ? `<p><strong>Release Date:</strong> ${result.source.dateRelease}</p>` : ''}
-            ${result.source.country ? `<p><strong>Country:</strong> ${result.source.country}</p>` : ''}
+            <div class="metadata-header">
+                <img src="${albumImage}" alt="${result.title}" class="metadata-image album-image">
+                <div class="metadata-title">
+                    <h3>Album Information</h3>
+                    <h2>${result.title}</h2>
+                    <p class="metadata-subtitle">by ${result.source.artist_name || result.source.name || "Unknown Artist"}</p>
+                </div>
+            </div>
+            <div class="metadata-details">
+                ${result.source.genre ? `<p><strong>Genre:</strong> ${result.source.genre}</p>` : ''}
+                ${result.source.dateRelease ? `<p><strong>Release Date:</strong> ${result.source.dateRelease}</p>` : ''}
+                ${result.source.country ? `<p><strong>Country:</strong> ${result.source.country}</p>` : ''}
+            </div>
             <div id="spotify-album" class="spotify-match">
                 <h4>On Spotify</h4>
                 <div class="match-content">Loading...</div>
@@ -87,20 +104,35 @@ class MetadataDisplay {
         this.showModal();
 
         // Fetch Spotify album data
-        const searchQuery = `${result.title} ${result.source.name || ''}`.trim();
+        const searchQuery = `${result.title} ${result.source.artist_name || result.source.name || ''}`.trim();
         await this.fetchSpotifyAlbum(searchQuery);
     }
 
     async displaySongMetadata(result) {
         const content = `
-            <h3>Song Information</h3>
-            <p><strong>Title:</strong> ${result.title}</p>
-            <p><strong>Artist:</strong> ${result.source.name}</p>
-            ${result.source.albumTitle ? `<p><strong>Album:</strong> ${result.source.albumTitle}</p>` : ''}
-            ${result.source.album_genre ? `<p><strong>Genre:</strong> ${result.source.album_genre}</p>` : ''}
-            ${result.source.bpm ? `<p><strong>BPM:</strong> ${result.source.bpm}</p>` : ''}
-            ${result.source.language ? `<p><strong>Language:</strong> ${result.source.language}</p>` : ''}
-            ${result.source.lyrics ? `<p><strong>Lyrics:</strong></p><div class="lyrics">${result.source.lyrics}</div>` : ''}
+            <div class="metadata-header song-metadata-header">
+                <div class="song-icon">
+                    <i class="fas fa-music"></i>
+                </div>
+                <div class="metadata-title">
+                    <h3>Song Information</h3>
+                    <h2>${result.title}</h2>
+                    <p class="metadata-subtitle">by ${result.source.artist || result.source.name || "Unknown Artist"}</p>
+                </div>
+            </div>
+            <div class="metadata-details">
+                ${result.source.albumTitle ? `<p><strong>Album:</strong> ${result.source.albumTitle}</p>` : ''}
+                ${result.source.album_genre ? `<p><strong>Genre:</strong> ${result.source.album_genre}</p>` : ''}
+                ${result.source.bpm ? `<p><strong>BPM:</strong> ${result.source.bpm}</p>` : ''}
+                ${result.source.language ? `<p><strong>Language:</strong> ${result.source.language}</p>` : ''}
+                ${result.preview ? `
+                    <div class="preview-player">
+                        <strong>Preview:</strong>
+                        <audio controls src="${result.preview}"></audio>
+                    </div>
+                ` : ''}
+                ${result.source.lyrics ? `<div class="lyrics-section"><strong>Lyrics:</strong><div class="lyrics">${result.source.lyrics}</div></div>` : ''}
+            </div>
             <div id="spotify-matches" class="artist-songs">Loading Spotify matches...</div>
         `;
 
@@ -115,7 +147,7 @@ class MetadataDisplay {
                 await this.fetchSpotifyTrack(trackId);
             }
         } else {
-            await this.searchSpotifyTracks(result.title + ' ' + result.source.name);
+            await this.searchSpotifyTracks(result.title + ' ' + (result.source.artist || result.source.name || ''));
         }
     }
 

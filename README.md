@@ -59,6 +59,7 @@ cd ..
 rm -rf json rdf wasabi-2-0.tar
 cd ..
 ```
+remove any other files in the corpus folder except for `album.json`, `artist-without-members.json`, and `song.json`
 
 ## Start indexing
 
