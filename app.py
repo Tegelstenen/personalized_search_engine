@@ -85,23 +85,29 @@ def home():
 def search():
     """Handle search requests across artists, albums, and songs."""
     query = request.args.get("q", "")
+    filter_type = request.args.get("filter", "all")
+    
     if not query:
         return jsonify({"hits": []})
 
     hits = []
 
-    # Search and process artists
-    artist_results = client.search(index="artists", body=create_artist_query(query))
-    for hit in artist_results["hits"]["hits"]:
-        hits.extend(process_artist_results(hit))
+    # Search based on filter type
+    if filter_type in ["all", "artists"]:
+        # Search and process artists
+        artist_results = client.search(index="artists", body=create_artist_query(query))
+        for hit in artist_results["hits"]["hits"]:
+            hits.extend(process_artist_results(hit))
 
-    # Search and process albums
-    album_results = client.search(index="albums", body=create_album_query(query))
-    hits.extend(process_album_results(hit) for hit in album_results["hits"]["hits"])
+    if filter_type in ["all", "albums"]:
+        # Search and process albums
+        album_results = client.search(index="albums", body=create_album_query(query))
+        hits.extend(process_album_results(hit) for hit in album_results["hits"]["hits"])
 
-    # Search and process songs
-    song_results = client.search(index="songs", body=create_song_query(query))
-    hits.extend(process_song_results(hit) for hit in song_results["hits"]["hits"])
+    if filter_type in ["all", "songs"]:
+        # Search and process songs
+        song_results = client.search(index="songs", body=create_song_query(query))
+        hits.extend(process_song_results(hit) for hit in song_results["hits"]["hits"])
 
     # Clean and deduplicate results
     cleaned_hits = clean_and_deduplicate_results(hits)

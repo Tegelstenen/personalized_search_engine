@@ -1,14 +1,13 @@
 import argparse
-import json
 import os
 import re
 import time
+import ijson
 
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
 
-from mappings import INDEX_MAPPINGS
 
 load_dotenv()
 
@@ -16,21 +15,226 @@ load_dotenv()
 CORPUS_DIR = "corpus"
 FILE_TO_INDEX_MAP = {
     "artist-without-members.json": "artists",
-    "artist-members.json": "artists",
     "album.json": "albums",
     "song.json": "songs",
-    "topic-models.json": "topics",
-    "emotion-tags.json": "emotions",
-    "social-tags.json": "social_tags",
-    "song-topic.json": "song_topics",
 }
 BULK_CHUNK_SIZE = 500
-LARGE_FILE_THRESHOLD = 100 * 1024 * 1024  # 100 MB threshold for determining large files
 
+# Define mappings for indices that need specific field types
+SONGS_MAPPING = {
+    "properties": {
+        # Text fields for better search
+        "title": {
+            "type": "text",
+            "analyzer": "standard",
+            "fields": {
+                "keyword": {"type": "keyword", "ignore_above": 256}
+            }
+        },
+        "artist": {
+            "type": "text",
+            "analyzer": "standard",
+            "fields": {
+                "keyword": {"type": "keyword", "ignore_above": 256}
+            }
+        },
+        "lyrics": {
+            "type": "text",
+            "analyzer": "standard"
+        },
+        "albumTitle": {
+            "type": "text",
+            "analyzer": "standard",
+            "fields": {
+                "keyword": {"type": "keyword", "ignore_above": 256}
+            }
+        },
+        "album_genre": {
+            "type": "text",
+            "analyzer": "standard",
+            "fields": {
+                "keyword": {"type": "keyword", "ignore_above": 256}
+            }
+        },
+        "summary": {
+            "type": "text",
+            "analyzer": "standard"
+        },
+        "language": {
+            "type": "keyword"
+        },
+        # Nested and special fields
+        "deezer_mapping": {
+            "type": "nested",
+            "properties": {
+                "0": {"type": "long", "coerce": True},
+                "1": {"type": "keyword"}
+            }
+        },
+        "chords_metadata": {
+            "properties": {
+                "confidence": {"type": "float", "coerce": True},
+                "duration": {"type": "float", "coerce": True},
+                "chordSequence": {
+                    "type": "nested",
+                    "properties": {
+                        "start": {"type": "float", "coerce": True},
+                        "end": {"type": "float", "coerce": True},
+                        "label": {"type": "keyword"}
+                    }
+                }
+            }
+        },
+        "publicationDate": {
+            "type": "date",
+            "format": "strict_date_optional_time||epoch_millis||yyyy-MM-dd||strict_date||basic_date",
+            "ignore_malformed": True,
+            "null_value": None
+        },
+        "id_album": {"type": "keyword"},
+        "id_artist": {"type": "keyword"},
+        "id_song_musicbrainz": {"type": "keyword"},
+        "id_song_deezer": {"type": "keyword"}
+    },
+    "dynamic_templates": [
+        {
+            "strings_as_keywords": {
+                "match_mapping_type": "string",
+                "mapping": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                }
+            }
+        }
+    ]
+}
+
+ALBUMS_MAPPING = {
+    "properties": {
+        # Text fields for better search
+        "title": {
+            "type": "text",
+            "analyzer": "standard",
+            "fields": {
+                "keyword": {"type": "keyword", "ignore_above": 256}
+            }
+        },
+        "name": {
+            "type": "text",
+            "analyzer": "standard",
+            "fields": {
+                "keyword": {"type": "keyword", "ignore_above": 256}
+            }
+        },
+        "artist_name": {
+            "type": "text",
+            "analyzer": "standard",
+            "fields": {
+                "keyword": {"type": "keyword", "ignore_above": 256}
+            }
+        },
+        "genre": {
+            "type": "text",
+            "analyzer": "standard",
+            "fields": {
+                "keyword": {"type": "keyword", "ignore_above": 256}
+            }
+        },
+        # ID and date fields
+        "id_artist": {"type": "keyword"},
+        "id_album_deezer": {"type": "keyword"},
+        "id_album_musicbrainz": {"type": "keyword"},
+        "id_album_discogs": {"type": "keyword"},
+        "country": {"type": "keyword"},
+        "language": {"type": "keyword"},
+        "dateRelease": {
+            "type": "date",
+            "format": "strict_date_optional_time||epoch_millis||yyyy-MM-dd||strict_date||basic_date",
+            "ignore_malformed": True,
+            "null_value": None
+        }
+    },
+    "dynamic_templates": [
+        {
+            "strings_as_keywords": {
+                "match_mapping_type": "string",
+                "mapping": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                }
+            }
+        }
+    ]
+}
+
+ARTISTS_MAPPING = {
+    "properties": {
+        # Text fields for better search
+        "name": {
+            "type": "text",
+            "analyzer": "standard",
+            "fields": {
+                "keyword": {"type": "keyword", "ignore_above": 256}
+            }
+        },
+        "nameVariations": {
+            "type": "text",
+            "analyzer": "standard",
+            "fields": {
+                "keyword": {"type": "keyword", "ignore_above": 256}
+            }
+        },
+        "abstract": {
+            "type": "text",
+            "analyzer": "standard"
+        },
+        "dbp_abstract": {
+            "type": "text", 
+            "analyzer": "standard"
+        },
+        "genres": {
+            "type": "text",
+            "analyzer": "standard",
+            "fields": {
+                "keyword": {"type": "keyword", "ignore_above": 256}
+            }
+        },
+        "dbp_genre": {
+            "type": "text",
+            "analyzer": "standard",
+            "fields": {
+                "keyword": {"type": "keyword", "ignore_above": 256}
+            }
+        },
+        "type": {"type": "keyword"},
+        "location": {
+            "properties": {
+                "city": {"type": "keyword"},
+                "country": {"type": "keyword"}
+            }
+        }
+    },
+    "dynamic_templates": [
+        {
+            "strings_as_keywords": {
+                "match_mapping_type": "string",
+                "mapping": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                }
+            }
+        }
+    ]
+}
+
+INDEX_MAPPINGS = {
+    "songs": SONGS_MAPPING,
+    "albums": ALBUMS_MAPPING,
+    "artists": ARTISTS_MAPPING
+}
 
 # --- Helper Functions ---
 def connect_es():
-    """Connects to Elasticsearch"""
     print("Connecting to Elasticsearch...")
     try:
         es = Elasticsearch(
@@ -46,281 +250,91 @@ def connect_es():
 
 
 def create_index(es_client, index_name, mapping=None):
-    """Creates an Elasticsearch index if it doesn't exist"""
     if not es_client.indices.exists(index=index_name):
         print(f"Creating index '{index_name}'...")
         try:
             # Use provided mapping if available, otherwise use a basic mapping
             if mapping:
                 es_client.indices.create(index=index_name, mappings=mapping)
+                print(f"Created index '{index_name}' with defined mapping.")
             else:
                 # Create a simple dynamic mapping for indices without a predefined structure
                 es_client.indices.create(index=index_name)
                 print(f"Created index '{index_name}' with dynamic mapping.")
-            print(f"Index '{index_name}' created.")
         except Exception as e:
             print(f"Error creating index '{index_name}': {e}")
     else:
         print(f"Index '{index_name}' already exists.")
 
+def extract_oid(value):
+    """Extract the $oid value from a MongoDB-style ID object."""
+    if isinstance(value, dict) and "$oid" in value:
+        return value["$oid"]
+    return value
 
-def is_large_file(filepath, threshold=LARGE_FILE_THRESHOLD):
-    """Check if a file is large based on its size"""
-    return os.path.getsize(filepath) > threshold
-
+def process_document(doc):
+    """Process a document before indexing."""
+    # Handle MongoDB-style IDs
+    if "id_artist" in doc:
+        doc["id_artist"] = extract_oid(doc["id_artist"])
+    if "id_album" in doc:
+        doc["id_album"] = extract_oid(doc["id_album"])
+    
+    # Handle deezer_mapping array structure
+    if "deezer_mapping" in doc:
+        if doc["deezer_mapping"] is None:
+            doc["deezer_mapping"] = []
+        else:
+            doc["deezer_mapping"] = [
+                {"0": mapping[0], "1": mapping[1]}
+                for mapping in doc["deezer_mapping"]
+                if isinstance(mapping, (list, tuple)) and len(mapping) == 2
+            ]
+    
+    return doc
 
 def generate_bulk_actions(filepath, index_name, subset_size=None):
-    """Generator function to yield bulk actions for documents in a file"""
-    print(f"Processing file: {filepath} for index: {index_name}")
+    print(f"\nProcessing file: {filepath} for index: {index_name}")
     count = 0
+    
+    # Print size
     file_size = os.path.getsize(filepath) / (1024 * 1024)  # Size in MB
     print(f"File size: {file_size:.2f} MB")
 
     try:
-        # If the file is large, use line-by-line processing
-        if is_large_file(filepath):
-            print(f"Using line-by-line processing for large file")
-            with open(filepath, encoding="utf-8") as f:
-                # Check if the file starts with a JSON array bracket
-                first_char = f.read(1)
-                f.seek(0)  # Reset file pointer to the beginning
+        with open(filepath, encoding="utf-8") as f:
+            try:
+                print("Processing JSON array using ijson streaming parser...")
+                objects = ijson.items(f, 'item')
+                for doc in objects:
+                    try:
+                        # Extract the $oid for the document ID
+                        doc_id = doc.get("_id", {}).get("$oid")
+                        del doc["_id"]
+                        
+                        # Process MongoDB-style IDs
+                        doc = process_document(doc)
+                        
+                        # Yield the bulk action dictionary
+                        yield {
+                            "_index": index_name,
+                            "_id": doc_id,
+                            "_source": doc,
+                        }
+                        count += 1
 
-                if first_char == "[":
-                    print("File is a JSON array. Using iterative JSON parser...")
-                    # Skip the initial '[' character
-                    f.read(1)
-
-                    # Initialize for JSON object parsing
-                    brackets_depth = 0
-                    in_string = False
-                    escape_next = False
-                    current_object = ""
-
-                    # Process subset limits
-                    if subset_size:
-                        print(f"Using subset of {subset_size} documents for debugging")
-
-                    # For tracking progress
-                    last_progress_time = time.time()
-                    start_time = last_progress_time
-
-                    # Process character by character
-                    char = f.read(1)
-                    while char:
-                        current_object += char
-
-                        # Handle string escape sequences
-                        if in_string:
-                            if char == "\\":
-                                escape_next = not escape_next
-                            elif char == '"' and not escape_next:
-                                in_string = False
-                            else:
-                                escape_next = False
-                        else:
-                            if char == '"':
-                                in_string = True
-                            elif char == "{":
-                                brackets_depth += 1
-                            elif char == "}":
-                                brackets_depth -= 1
-                                if brackets_depth == 0:
-                                    # We've completed an object
-                                    try:
-                                        # Parse and process the object
-                                        doc = json.loads(current_object)
-
-                                        # Extract the $oid for the document ID
-                                        doc_id = doc.get("_id", {}).get("$oid")
-                                        if not doc_id:
-                                            print(
-                                                f"Skipping document without '_id.$oid'"
-                                            )
-                                        else:
-                                            # Process the document (cleaning, transformations, etc.)
-                                            processed_doc = process_document(
-                                                doc, index_name
-                                            )
-
-                                            # Yield the bulk action dictionary
-                                            if processed_doc:
-                                                yield {
-                                                    "_index": index_name,
-                                                    "_id": doc_id,
-                                                    "_source": processed_doc,
-                                                }
-                                                count += 1
-
-                                                # Check if we've reached subset limit
-                                                if subset_size and count >= subset_size:
-                                                    print(
-                                                        f"Reached subset limit of {subset_size} documents"
-                                                    )
-                                                    break
-                                    except json.JSONDecodeError as e:
-                                        print(f"Error parsing JSON object: {e}")
-
-                                    # Skip comma and whitespace to get to the next object
-                                    current_object = ""
-                                    next_char = f.read(1)
-                                    while (
-                                        next_char
-                                        and next_char.isspace()
-                                        or next_char == ","
-                                    ):
-                                        next_char = f.read(1)
-
-                                    # Put back the first character of the next object if it's not empty
-                                    if next_char:
-                                        f.seek(f.tell() - 1)
-
-                            # Show progress every 30 seconds
-                            current_time = time.time()
-                            if current_time - last_progress_time > 30:
-                                elapsed = current_time - start_time
-                                print(
-                                    f"Processed {count} documents in {elapsed:.2f} seconds ({count/elapsed:.2f} docs/sec)"
-                                )
-                                last_progress_time = current_time
-
-                        char = f.read(1)
-                else:
-                    # Process as JSONL (one JSON object per line)
-                    print("Processing as JSONL (one JSON object per line)")
-
-                    # For subset processing
-                    subset_counter = 0
-                    last_progress_time = time.time()
-                    start_time = last_progress_time
-
-                    for line in f:
-                        # Check subset limit
-                        if subset_size and subset_counter >= subset_size:
+                        # Check if we've reached subset limit
+                        if subset_size and count >= subset_size:
+                            print(f"Reached subset limit of {subset_size} documents")
                             break
 
-                        line = line.strip()
-                        if not line:
-                            continue
+                    except Exception as e:
+                        print(f"Error processing document: {e}")
 
-                        try:
-                            doc = json.loads(line)
-                            # Extract the $oid for the document ID
-                            doc_id = doc.get("_id", {}).get("$oid")
-                            if not doc_id:
-                                print(f"Skipping document without '_id.$oid'")
-                                continue
-
-                            # Process the document
-                            processed_doc = process_document(doc, index_name)
-
-                            # Yield the bulk action dictionary if processing was successful
-                            if processed_doc:
-                                yield {
-                                    "_index": index_name,
-                                    "_id": doc_id,
-                                    "_source": processed_doc,
-                                }
-                                count += 1
-                                subset_counter += 1
-
-                                # Show progress periodically
-                                current_time = time.time()
-                                if current_time - last_progress_time > 30:
-                                    elapsed = current_time - start_time
-                                    print(
-                                        f"Processed {count} documents in {elapsed:.2f} seconds ({count/elapsed:.2f} docs/sec)"
-                                    )
-                                    last_progress_time = current_time
-                        except json.JSONDecodeError as json_err:
-                            print(
-                                f"Skipping line due to JSON decode error: {json_err} - Line: {line[:100]}..."
-                            )  # Print start of line
-                        except Exception as e:
-                            print(f"Skipping document due to error: {e}")
-        else:
-            # For smaller files, load the entire file into memory
-            print("Processing smaller file in memory")
-            with open(filepath, encoding="utf-8") as f:
-                # Try to parse the file as a JSON array
-                try:
-                    documents = json.load(f)
-                    # If successful, process each document in the array
-                    if isinstance(documents, list):
-                        print(f"Processing JSON array with {len(documents)} items")
-
-                        # Apply subsetting if specified
-                        if subset_size and subset_size < len(documents):
-                            print(
-                                f"Using subset of {subset_size} documents for debugging"
-                            )
-                            documents = documents[:subset_size]
-
-                        for doc in documents:
-                            try:
-                                # Extract the $oid for the document ID
-                                doc_id = doc.get("_id", {}).get("$oid")
-                                if not doc_id:
-                                    print(f"Skipping document without '_id.$oid'")
-                                    continue
-
-                                # Process the document
-                                processed_doc = process_document(doc, index_name)
-
-                                # Yield the bulk action dictionary if processing was successful
-                                if processed_doc:
-                                    yield {
-                                        "_index": index_name,
-                                        "_id": doc_id,
-                                        "_source": processed_doc,
-                                    }
-                                    count += 1
-                            except Exception as e:
-                                print(f"Error processing document: {e}")
-                    else:
-                        print(f"Warning: {filepath} is not a JSON array")
-
-                # If the file is not a JSON array, try processing it as JSONL
-                except json.JSONDecodeError:
-                    print(f"Not a valid JSON array, trying as JSONL")
-                    # Reset file pointer to the beginning
-                    f.seek(0)
-
-                    # For subsetting
-                    subset_counter = 0
-
-                    for line in f:
-                        # Check subset limit
-                        if subset_size and subset_counter >= subset_size:
-                            break
-
-                        line = line.strip()
-                        if not line:
-                            continue
-
-                        try:
-                            doc = json.loads(line)
-                            # Extract the $oid for the document ID
-                            doc_id = doc.get("_id", {}).get("$oid")
-                            if not doc_id:
-                                print(f"Skipping document without '_id.$oid'")
-                                continue
-
-                            # Process the document
-                            processed_doc = process_document(doc, index_name)
-
-                            # Yield the bulk action dictionary if processing was successful
-                            if processed_doc:
-                                yield {
-                                    "_index": index_name,
-                                    "_id": doc_id,
-                                    "_source": processed_doc,
-                                }
-                                count += 1
-                                subset_counter += 1
-                        except json.JSONDecodeError as json_err:
-                            print(f"Skipping line due to JSON decode error: {json_err}")
-                        except Exception as e:
-                            print(f"Error processing document: {e}")
+            except StopIteration:
+                print("Empty file or invalid JSON format")
+            except ijson.JSONError as e:
+                print(f"Error parsing JSON: {e}")
 
     except FileNotFoundError:
         print(f"Error: File not found {filepath}")
@@ -329,138 +343,6 @@ def generate_bulk_actions(filepath, index_name, subset_size=None):
 
     print(f"Finished processing {filepath}. Found {count} valid documents.")
 
-
-def process_document(doc, index_name, filename=""):
-    """Process a document with cleaning and transformations"""
-    try:
-        # Create a copy of the document to avoid modifying the original
-        processed_doc = doc.copy()
-
-        # Remove the original _id field as we use $oid for ES _id
-        if "_id" in processed_doc:
-            del processed_doc["_id"]
-
-        # Handle nested $oid references (like id_artist, id_album, song_id)
-        for key, value in list(processed_doc.items()):  # Iterate over a copy of items
-            if isinstance(value, dict) and "$oid" in value:
-                processed_doc[key] = value[
-                    "$oid"
-                ]  # Replace the dict with just the ID string
-
-        # Special handling for artist-members.json
-        if (
-            filename == "artist-members.json"
-            or os.path.basename(filename) == "artist-members.json"
-        ):
-            # Handle the members array
-            if "members" in processed_doc and isinstance(
-                processed_doc["members"], list
-            ):
-                for member in processed_doc["members"]:
-                    # No special processing needed for equipments anymore - we're disabling indexing entirely
-                    # Just leave it as is - Elasticsearch will store but not index the object
-
-                    # Fix the birthDate format
-                    if "birthDate" in member:
-                        if not member["birthDate"]:
-                            del member["birthDate"]
-                        elif isinstance(member["birthDate"], str) and re.match(
-                            r"^\d{4}$", member["birthDate"]
-                        ):
-                            # Keep as is - the mapping will handle years correctly
-                            pass
-
-        # Index-specific processing
-        if index_name == "albums":
-            # Handle cover field
-            if "cover" in processed_doc:
-                del processed_doc["cover"]
-
-            # Handle problematic publication dates
-            if "publicationDate" in processed_doc:
-                # Handle empty values
-                if not processed_doc["publicationDate"]:
-                    del processed_doc["publicationDate"]
-                elif isinstance(processed_doc["publicationDate"], str):
-                    # Enhanced pattern matching for complex date strings:
-                    # First look for a simple year pattern at beginning
-                    year_match = re.match(
-                        r"^(\d{4})(?:\)|\?|$)", processed_doc["publicationDate"]
-                    )
-
-                    if year_match:
-                        processed_doc["publicationDate"] = year_match.group(1)
-                    else:
-                        # Try more aggressive pattern matching - find the first 4 digit sequence
-                        year_match = re.search(
-                            r"(\d{4})", processed_doc["publicationDate"]
-                        )
-                        if year_match:
-                            processed_doc["publicationDate"] = year_match.group(1)
-                        else:
-                            # If no valid year found, remove the field
-                            del processed_doc["publicationDate"]
-
-            # Handle dateRelease with the same approach
-            if "dateRelease" in processed_doc:
-                if not processed_doc["dateRelease"]:
-                    del processed_doc["dateRelease"]
-                elif isinstance(processed_doc["dateRelease"], str):
-                    # First try standard date format YYYY-MM-DD
-                    date_match = re.match(
-                        r"^(\d{4}-\d{2}-\d{2})", processed_doc["dateRelease"]
-                    )
-                    if date_match:
-                        processed_doc["dateRelease"] = date_match.group(1)
-                    else:
-                        # Then try to extract just a year
-                        year_match = re.search(r"(\d{4})", processed_doc["dateRelease"])
-                        if year_match:
-                            processed_doc["dateRelease"] = year_match.group(1)
-                        else:
-                            # If no valid date components found, remove the field
-                            del processed_doc["dateRelease"]
-
-        elif index_name == "songs":
-            # Remove problematic deezer_mapping field
-            if "deezer_mapping" in processed_doc:
-                del processed_doc["deezer_mapping"]
-
-            # Handle problematic publication dates with the same enhanced patterns
-            if "publicationDateAlbum" in processed_doc:
-                if not processed_doc["publicationDateAlbum"]:
-                    del processed_doc["publicationDateAlbum"]
-                elif isinstance(processed_doc["publicationDateAlbum"], str):
-                    year_match = re.search(
-                        r"(\d{4})", processed_doc["publicationDateAlbum"]
-                    )
-                    if year_match:
-                        processed_doc["publicationDateAlbum"] = year_match.group(1)
-                    else:
-                        del processed_doc["publicationDateAlbum"]
-
-            if "publicationDate" in processed_doc:
-                if not processed_doc["publicationDate"]:
-                    del processed_doc["publicationDate"]
-                elif isinstance(processed_doc["publicationDate"], str):
-                    date_match = re.match(
-                        r"^(\d{4}-\d{2}-\d{2})", processed_doc["publicationDate"]
-                    )
-                    if date_match:
-                        processed_doc["publicationDate"] = date_match.group(1)
-                    else:
-                        year_match = re.search(
-                            r"(\d{4})", processed_doc["publicationDate"]
-                        )
-                        if year_match:
-                            processed_doc["publicationDate"] = year_match.group(1)
-                        else:
-                            del processed_doc["publicationDate"]
-
-        return processed_doc
-    except Exception as e:
-        print(f"Error in process_document: {e}")
-        return None
 
 
 # --- Main Execution ---
@@ -510,14 +392,8 @@ if __name__ == "__main__":
                 es.indices.delete(index=index_name)
                 print(f"Index '{index_name}' deleted.")
 
-    # Create indices with mappings
     for index_name in indices_to_create:
-        # Check if we have a predefined mapping for this index
-        if index_name in INDEX_MAPPINGS:
-            create_index(es, index_name, INDEX_MAPPINGS[index_name])
-        else:
-            # For indices without predefined mappings, create with dynamic mapping
-            create_index(es, index_name)
+        create_index(es, index_name, INDEX_MAPPINGS.get(index_name))
 
     # Index data from files
     print("\nStarting data indexing...")

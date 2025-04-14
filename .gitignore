@@ -18,3 +18,5 @@ instance
 
 # logs
 *.log
+
+.cache

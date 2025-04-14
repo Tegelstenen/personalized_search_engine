@@ -26,6 +26,12 @@
         </button>
 
         <div class="search-container">
+            <div class="search-filters">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="songs">Songs</button>
+                <button class="filter-btn" data-filter="albums">Albums</button>
+                <button class="filter-btn" data-filter="artists">Artists</button>
+            </div>
             <input type="text" id="search-input" placeholder="Search...">
             <button id="search-button">Search</button>
         </div>
@@ -107,22 +113,89 @@
             const loadingDiv = document.getElementById('loading');
             const errorDiv = document.getElementById('error-message');
             const rankedResultsDiv = document.getElementById('ranked-results');
+            const filterButtons = document.querySelectorAll('.filter-btn');
+            
+            // Current active filter
+            let activeFilter = 'all';
+
+            // Set up filter buttons
+            filterButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // Remove active class from all buttons
+                    filterButtons.forEach(btn => btn.classList.remove('active'));
+                    
+                    // Add active class to clicked button
+                    button.classList.add('active');
+                    
+                    // Set active filter
+                    activeFilter = button.getAttribute('data-filter');
+                    
+                    // If there are already results, refilter them
+                    if (resultsDiv.style.display === 'block') {
+                        performSearch();
+                    }
+                });
+            });
 
             function displayRankedResults(hits) {
                 rankedResultsDiv.innerHTML = '';
 
                 const resultsList = document.createElement('div');
-                resultsList.className = 'ranked-results-list';
+                resultsList.className = 'results-grid';
 
-                hits.forEach((hit, index) => {
+                // Filter hits based on activeFilter
+                const filteredHits = activeFilter === 'all' 
+                    ? hits 
+                    : hits.filter(hit => hit.type === activeFilter);
+
+                if (filteredHits.length === 0) {
+                    const noResults = document.createElement('div');
+                    noResults.className = 'no-results';
+                    noResults.textContent = `No ${activeFilter === 'all' ? '' : activeFilter} results found.`;
+                    rankedResultsDiv.appendChild(noResults);
+                    return;
+                }
+
+                filteredHits.forEach((hit, index) => {
                     const resultItem = document.createElement('div');
-                    resultItem.className = 'ranked-result-item';
-                    resultItem.innerHTML = `
-                        <span class="rank">${index + 1}</span>
-                        <span class="type ${hit.type}">${hit.type}</span>
-                        <span class="title">${hit.title}</span>
-                        <span class="snippet">${hit.content || ''}</span>
-                    `;
+                    resultItem.className = `result-card ${hit.type}`;
+                    
+                    let resultContent = '';
+                    switch(hit.type) {
+                        case 'artists':
+                            resultContent = `
+                                <img src="${hit.image || '/static/default-artist.png'}" alt="${hit.title}" class="result-image">
+                                <div class="result-content">
+                                    <div class="title">${hit.title}</div>
+                                    <div class="subtitle">Artist</div>
+                                </div>
+                            `;
+                            break;
+                        case 'albums':
+                            // Get artist name from source if available
+                            const albumArtist = hit.source.artist_name || hit.source.name || 'Unknown artist';
+                            resultContent = `
+                                <img src="${hit.image || '/static/default-album.png'}" alt="${hit.title}" class="result-image">
+                                <div class="result-content">
+                                    <div class="title">${hit.title}</div>
+                                    <div class="subtitle">Album • ${albumArtist}</div>
+                                </div>
+                            `;
+                            break;
+                        case 'songs':
+                            // Get artist name from source if available
+                            const songArtist = hit.source.artist || hit.source.artistName || hit.source.name || 'Unknown artist';
+                            resultContent = `
+                                <div class="result-content song-content">
+                                    <div class="title">${hit.title}</div>
+                                    <div class="subtitle">${songArtist}</div>
+                                </div>
+                            `;
+                            resultItem.classList.add('song-result-card');
+                            break;
+                    }
+                    
+                    resultItem.innerHTML = resultContent;
 
                     // Add click event to show metadata
                     resultItem.addEventListener('click', () => {
@@ -166,7 +239,7 @@
                 errorDiv.textContent = '';
 
                 try {
-                    const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+                    const response = await fetch(`/search?q=${encodeURIComponent(query)}&filter=${activeFilter}`);
                     const data = await response.json();
 
                     if (response.status === 401) {
