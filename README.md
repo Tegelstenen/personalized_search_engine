@@ -66,3 +66,9 @@ remove any other files in the corpus folder except for `album.json`, `artist-wit
 ```zsh
 uv run src/indexing.py
 ```
+
+# To calculate the embeddings
+```zsh
+uv run src/embedding.py -i SONG_JSON_DIR -o OUTPUT_DIR
+```
+then you need to re-index to load these embeddings on Elastic Search

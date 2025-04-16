@@ -10,14 +10,14 @@ def create_artist_query(query):
                 "should": [
                     # Exact matches for artist name (highest priority)
                     {"term": {"name.keyword": {"value": query, "boost": 10}}},
-                    
+
                     # Phrase matches (high priority)
                     {"match_phrase": {"name": {"query": query, "boost": 5}}},
-                    
+
                     # Text field matches
                     {"match": {"name": {"query": query, "boost": 3, "fuzziness": "AUTO"}}},
                     {"match": {"nameVariations": {"query": query, "boost": 2}}},
-                    
+
                     # Lower priority matches
                     {"match": {"abstract": {"query": query, "boost": 1}}},
                     {"match": {"genres": {"query": query, "boost": 1}}},
@@ -47,12 +47,12 @@ def create_album_query(query):
                     {"term": {"title.keyword": {"value": query, "boost": 10}}},
                     {"match_phrase": {"title": {"query": query, "boost": 8}}},
                     {"match": {"title": {"query": query, "boost": 5, "fuzziness": "AUTO"}}},
-                    
+
                     # Name matches (high priority)
                     {"term": {"name.keyword": {"value": query, "boost": 8}}},
                     {"match_phrase": {"name": {"query": query, "boost": 6}}},
                     {"match": {"name": {"query": query, "boost": 4, "fuzziness": "AUTO"}}},
-                    
+
                     # Artist name matches (medium priority)
                     {"term": {"artist_name.keyword": {"value": query, "boost": 3}}},
                     {"match_phrase": {"artist_name": {"query": query, "boost": 2}}},
@@ -72,28 +72,34 @@ def create_album_query(query):
     }
 
 
-def create_song_query(query):
+def create_song_query(query, query_vector):
     """Create the Elasticsearch query for songs."""
     return {
-        "query": {
-            "bool": {
-                "should": [
-                    # Title matches (highest priority)
-                    {"term": {"title.keyword": {"value": query, "boost": 10}}},
-                    {"match_phrase": {"title": {"query": query, "boost": 8}}},
-                    {"match": {"title": {"query": query, "boost": 5, "fuzziness": "AUTO"}}},
-                    
-                    # Artist matches (medium priority)
-                    {"term": {"artist.keyword": {"value": query, "boost": 3}}},
-                    {"match_phrase": {"artist": {"query": query, "boost": 2}}},
-                    {"match": {"artist": {"query": query, "boost": 1}}},
-                    
-                    # Album title matches (lower priority)
-                    {"match_phrase": {"albumTitle": {"query": query, "boost": 1}}},
-                ],
-                "minimum_should_match": 1
-            }
+        "knn": {
+            "field": "title_embedding",
+            "query_vector": query_vector,
+            "k": 50,
+            "num_candidates": 5000
         },
+        # "query": {
+        #     "bool": {
+        #         "should": [
+        #             # Title matches (highest priority)
+        #             {"term": {"title.keyword": {"value": query, "boost": 10}}},
+        #             {"match_phrase": {"title": {"query": query, "boost": 8}}},
+        #             {"match": {"title": {"query": query, "boost": 5, "fuzziness": "AUTO"}}},
+        #
+        #             # Artist matches (medium priority)
+        #             {"term": {"artist.keyword": {"value": query, "boost": 3}}},
+        #             {"match_phrase": {"artist": {"query": query, "boost": 2}}},
+        #             {"match": {"artist": {"query": query, "boost": 1}}},
+        #
+        #             # Album title matches (lower priority)
+        #             {"match_phrase": {"albumTitle": {"query": query, "boost": 1}}},
+        #         ],
+        #         "minimum_should_match": 1
+        #     }
+        # },
         "highlight": {
             "fields": {
                 "title": {},
@@ -117,7 +123,7 @@ def process_artist_results(hit):
     # Process top-level artist match
     if highlight:
         title = highlight.get("name", [source.get("name", "Unknown")])[0]
-        
+
         # Get genre information (prioritize highlighted version if available)
         genre_info = ""
         if "genres" in highlight:
@@ -125,10 +131,11 @@ def process_artist_results(hit):
         elif "dbp_genre" in highlight:
             genre_info = highlight["dbp_genre"][0]
         elif "genres" in source:
-            genre_info = ", ".join(source["genres"][:3]) if isinstance(source.get("genres"), list) else source.get("genres", "")
+            genre_info = ", ".join(source["genres"][:3]) if isinstance(source.get("genres"), list) else source.get(
+                "genres", "")
         elif "dbp_genre" in source:
             genre_info = source.get("dbp_genre", "")
-        
+
         # Get location information
         location_info = ""
         if "location" in source:
@@ -141,23 +148,23 @@ def process_artist_results(hit):
                 location_info = city
             elif country:
                 location_info = country
-        
+
         # Get artist image
         image_url = None
         if "picture" in source:
             # Try to get image from picture field in descending size preference
             picture = source["picture"]
             image_url = (
-                picture.get("xl") or 
-                picture.get("big") or 
-                picture.get("standard") or 
-                picture.get("medium") or 
-                picture.get("small")
+                    picture.get("xl") or
+                    picture.get("big") or
+                    picture.get("standard") or
+                    picture.get("medium") or
+                    picture.get("small")
             )
-        
+
         # Create a rich snippet with artist details
         rich_snippet = ""
-        
+
         # Create a rich snippet combining abstract and metadata
         abstract = next(
             (
@@ -167,18 +174,18 @@ def process_artist_results(hit):
             ),
             source.get("abstract", source.get("dbp_abstract", "")),
         )
-        
+
         # Add genre information if available
         if genre_info:
             rich_snippet += genre_info
-        
+
         # Add location information if available
         if location_info:
             if rich_snippet:
                 rich_snippet += f" • {location_info}"
             else:
                 rich_snippet += location_info
-        
+
         # Add abstract information if available
         if abstract:
             if rich_snippet:
@@ -202,10 +209,10 @@ def process_artist_results(hit):
     for inner_hit in inner_hits:
         member = inner_hit["_source"]
         title = member.get("name", "Unknown Member")
-        
+
         # Create a rich snippet for the member
         member_snippet = ""
-        
+
         # Add member information
         if "dbp_abstract" in member:
             member_snippet = member["dbp_abstract"]
@@ -213,14 +220,15 @@ def process_artist_results(hit):
             member_snippet = member["abstract"]
         elif "nameVariations" in member and member["nameVariations"]:
             member_snippet = f"Also known as: {', '.join(member['nameVariations'])}"
-        
+
         # Add parent artist information
         if source.get("name"):
             if member_snippet:
-                member_snippet = f"Member of {source['name']} • {member_snippet[:150]}..." if len(member_snippet) > 150 else f"Member of {source['name']} • {member_snippet}"
+                member_snippet = f"Member of {source['name']} • {member_snippet[:150]}..." if len(
+                    member_snippet) > 150 else f"Member of {source['name']} • {member_snippet}"
             else:
                 member_snippet = f"Member of {source['name']}"
-        
+
         results.append(
             {
                 "id": f"{hit['_id']}_{inner_hit['_nested']['offset']}",
@@ -245,63 +253,63 @@ def process_album_results(hit):
         "title",
         highlight.get("name", [source.get("title", source.get("name", "Unknown"))]),
     )[0]
-    
+
     # Get artist name (prioritize highlighted version if available)
     artist_name = ""
     if "artist_name" in highlight:
         artist_name = highlight["artist_name"][0]
     elif "artist_name" in source:
         artist_name = source["artist_name"]
-    
+
     # Get genre information
     genre_info = ""
     if "genre" in highlight:
         genre_info = highlight["genre"][0]
     elif "genre" in source:
         genre_info = source["genre"]
-    
+
     # Get year information
     year_info = source.get("year", "")
-    
+
     # Get album cover image
     image_url = None
     if "cover" in source:
         # Try to get image from cover field in descending size preference
         cover = source["cover"]
         image_url = (
-            cover.get("xl") or 
-            cover.get("big") or 
-            cover.get("standard") or 
-            cover.get("medium") or 
-            cover.get("small")
+                cover.get("xl") or
+                cover.get("big") or
+                cover.get("standard") or
+                cover.get("medium") or
+                cover.get("small")
         )
-    
+
     # Create a rich snippet with album details
     rich_snippet = ""
-    
+
     # Add artist information if available
     if artist_name:
         rich_snippet += f"By {artist_name}"
-    
+
     # Add year information if available
     if year_info:
         if rich_snippet:
             rich_snippet += f" • {year_info}"
         else:
             rich_snippet += f"{year_info}"
-    
+
     # Add genre information if available
     if genre_info:
         if rich_snippet:
             rich_snippet += f" • {genre_info}"
         else:
             rich_snippet += genre_info
-    
+
     # Add country information if available
     country_info = source.get("country", "")
     if country_info and rich_snippet:
         rich_snippet += f" • {country_info}"
-    
+
     return {
         "id": hit["_id"],
         "title": title,
@@ -322,38 +330,38 @@ def process_song_results(hit):
         "title",
         highlight.get("name", [source.get("title", source.get("name", "Unknown"))]),
     )[0]
-    
+
     # Get artist name (prioritize highlighted version if available)
     artist_name = ""
     if "artist" in highlight:
         artist_name = highlight["artist"][0]
     elif "artist" in source:
         artist_name = source["artist"]
-    
+
     # Get album title (prioritize highlighted version if available)
     album_title = ""
     if "albumTitle" in highlight:
         album_title = highlight["albumTitle"][0]
     elif "albumTitle" in source:
         album_title = source["albumTitle"]
-    
+
     # Get preview URL if available
     preview_url = source.get("preview", None)
-    
+
     # Create a richer snippet with song details
     rich_snippet = ""
-    
+
     # Add artist information if available
     if artist_name:
         rich_snippet += f"By {artist_name}"
-    
+
     # Add album information if available
     if album_title:
         if rich_snippet:
             rich_snippet += f" • Album: {album_title}"
         else:
             rich_snippet += f"Album: {album_title}"
-    
+
     # Add lyrics/summary snippet if available
     content_snippet = next(
         (
@@ -363,13 +371,13 @@ def process_song_results(hit):
         ),
         source.get("lyrics", source.get("summary", source.get("album_genre", ""))),
     )
-    
+
     if content_snippet:
         if rich_snippet:
             rich_snippet += f" • {content_snippet[:150]}..." if len(content_snippet) > 150 else f" • {content_snippet}"
         else:
             rich_snippet = content_snippet[:200] + "..." if len(content_snippet) > 200 else content_snippet
-    
+
     return {
         "id": hit["_id"],
         "title": title,
@@ -393,33 +401,33 @@ def clean_and_deduplicate_results(hits):
     """Clean HTML tags and deduplicate results by category."""
     seen_titles = defaultdict(set)
     cleaned_hits = []
-    
+
     # First pass - clean and identify duplicates
     preprocessed = []
     for hit in hits:
         # Clean HTML tags from title and content
         hit["title"] = remove_html_tags(hit["title"])
         hit["content"] = remove_html_tags(hit["content"])
-        
+
         # Create a key for deduplication (type + cleaned title)
         key = hit["title"].lower()
         hit_type = hit["type"]
-        
+
         # If we haven't seen this title for this type, add it
         if key not in seen_titles[hit_type]:
             seen_titles[hit_type].add(key)
             preprocessed.append(hit)
-    
+
     # Sort all hits by score within their type
     artist_hits = [h for h in preprocessed if h["type"] == "artists"]
     album_hits = [h for h in preprocessed if h["type"] == "albums"]
     song_hits = [h for h in preprocessed if h["type"] == "songs"]
-    
+
     # Sort each category by score
     artist_hits.sort(key=lambda x: x["score"], reverse=True)
     album_hits.sort(key=lambda x: x["score"], reverse=True)
     song_hits.sort(key=lambda x: x["score"], reverse=True)
-    
+
     # Interleave results to create a more balanced display
     # Start with top hits of each type to ensure diversity
     for i in range(max(len(artist_hits), len(album_hits), len(song_hits))):
@@ -429,5 +437,5 @@ def clean_and_deduplicate_results(hits):
             cleaned_hits.append(album_hits[i])
         if i < len(song_hits):
             cleaned_hits.append(song_hits[i])
-    
+
     return cleaned_hits
