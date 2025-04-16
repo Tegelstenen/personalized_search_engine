@@ -71,4 +71,4 @@ uv run src/indexing.py
 ```zsh
 uv run src/embedding.py -i SONG_JSON_DIR -o OUTPUT_DIR
 ```
-then you need to re-index to load these embeddings on Elastic Search
+then you need to replace the original `song.json` with the output json file, and re-index to load these embeddings on Elastic Search
