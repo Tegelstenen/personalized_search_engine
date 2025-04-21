@@ -5,9 +5,10 @@ import ijson
 import simplejson as json
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
+import html
 
 
-def process_large_json(input_file, output_file, batch_size=1000):
+def process_large_json(input_file, output_file, batch_size=1000, field="title"):
     """
     Process a large JSON file by adding title embeddings in batches.
 
@@ -15,6 +16,10 @@ def process_large_json(input_file, output_file, batch_size=1000):
         input_file: Path to the input JSON file
         output_file: Path to the output JSON file
         batch_size: Number of songs to process in each batch
+        :param batch_size:
+        :param output_file:
+        :param input_file:
+        :param field:
     """
     # Initialize the embedding model
     model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
@@ -34,7 +39,7 @@ def process_large_json(input_file, output_file, batch_size=1000):
             batch.append(song)
 
             if len(batch) >= batch_size:
-                batch_file = process_batch(batch, model, temp_dir, batch_num)
+                batch_file = process_batch(batch, model, temp_dir, batch_num, field)
                 batch_files.append(batch_file)
                 batch_num += 1
                 pbar.update(len(batch))
@@ -42,7 +47,7 @@ def process_large_json(input_file, output_file, batch_size=1000):
 
         # Final batch
         if batch:
-            batch_file = process_batch(batch, model, temp_dir, batch_num)
+            batch_file = process_batch(batch, model, temp_dir, batch_num, field)
             batch_files.append(batch_file)
             pbar.update(len(batch))
 
@@ -59,13 +64,22 @@ def process_large_json(input_file, output_file, batch_size=1000):
     print(f"\n✅ Processing complete. Output saved to: {output_file}")
 
 
-def process_batch(batch, model, temp_dir, batch_num):
+def process_batch(batch, model, temp_dir, batch_num, field):
     """Add embeddings to a batch of songs."""
-    titles = [song.get("title", "") for song in batch]
-    embeddings = model.encode(titles, batch_size=32, show_progress_bar=False).tolist()
+    if field == 'lyrics':
+        # print("embedding lyrics..")
+        # remove html style in dataset
+        field_vals = [html.unescape(song.get(field, "")).replace("<br>", ". ") for song in batch]
+        # print("field_vals: " + str(field_vals))
+    else:
+        field_vals = [song.get(field, "") for song in batch]
+
+    embeddings = model.encode(field_vals, batch_size=32, show_progress_bar=False).tolist()
+
+    embedding_field_name = field + "_embedding"
 
     for song, embedding in zip(batch, embeddings):
-        song["title_embedding"] = embedding
+        song[embedding_field_name] = embedding
 
     batch_file = os.path.join(temp_dir, f"batch_{batch_num}.json")
     with open(batch_file, "w") as f:
@@ -103,6 +117,8 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--input", required=True, help="Path to input JSON file")
     parser.add_argument("-o", "--output", required=True, help="Path to output JSON file")
     parser.add_argument("-b", "--batch-size", type=int, default=2048, help="Batch size (default: 2048)")
+    parser.add_argument("-f", "--field", type=str, default="title", help="Field for embedding")
 
     args = parser.parse_args()
-    process_large_json(args.input, args.output, batch_size=args.batch_size)
+    print("field: " + args.field)
+    process_large_json(args.input, args.output, batch_size=args.batch_size, field=args.field)
