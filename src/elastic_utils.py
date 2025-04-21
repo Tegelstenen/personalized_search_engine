@@ -72,42 +72,41 @@ def create_album_query(query):
     }
 
 
-def create_song_query(query, query_vector):
-    # define number of candidates returned by retrievers
-    return_size = 100
+def create_song_query(query, query_vector, return_size = 100):
     """Create the Elasticsearch query for songs."""
     return {
         "knn": {
             "field": "title_embedding",
             "query_vector": query_vector,
             "k": 50,
-            "num_candidates": 5000
+            "num_candidates": 5000,
+            # "boost": 10
         },
-        "query": {
-            "bool": {
-                "should": [
-                    # Title matches (highest priority)
-                    {"term": {"title.keyword": {"value": query, "boost": 10}}},
-                    {"match_phrase": {"title": {"query": query, "boost": 8}}},
-                    {"match": {"title": {"query": query, "boost": 5, "fuzziness": "AUTO"}}},
-
-                    # Artist matches (medium priority)
-                    {"term": {"artist.keyword": {"value": query, "boost": 3}}},
-                    {"match_phrase": {"artist": {"query": query, "boost": 2}}},
-                    {"match": {"artist": {"query": query, "boost": 1}}},
-
-                    # Album title matches (lower priority)
-                    {"match_phrase": {"albumTitle": {"query": query, "boost": 1}}},
-                ],
-                "minimum_should_match": 1
-            }
-        },
-        "rank": {
-            # combine full-text & vector search
-            "rrf": {
-                "rank_window_size": return_size
-            }
-        },
+        # "query": {
+        #     "bool": {
+        #         "should": [
+        #             # Title matches (highest priority)
+        #             {"term": {"title.keyword": {"value": query, "boost": 10}}},
+        #             {"match_phrase": {"title": {"query": query, "boost": 8}}},
+        #             {"match": {"title": {"query": query, "boost": 5, "fuzziness": "AUTO"}}},
+        #
+        #             # Artist matches (medium priority)
+        #             {"term": {"artist.keyword": {"value": query, "boost": 3}}},
+        #             {"match_phrase": {"artist": {"query": query, "boost": 2}}},
+        #             {"match": {"artist": {"query": query, "boost": 1}}},
+        #
+        #             # Album title matches (lower priority)
+        #             {"match_phrase": {"albumTitle": {"query": query, "boost": 1}}},
+        #         ],
+        #         "minimum_should_match": 1
+        #     }
+        # },
+        # "rank": {
+        #     # combine full-text & vector search
+        #     "rrf": {
+        #         "rank_window_size": return_size
+        #     }
+        # },
         "highlight": {
             "fields": {
                 "title": {},
