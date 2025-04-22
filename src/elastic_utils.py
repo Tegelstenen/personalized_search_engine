@@ -72,16 +72,29 @@ def create_album_query(query):
     }
 
 
-def create_song_query(query, query_vector, return_size = 100):
+def create_song_query(query, query_vector, return_size=100):
     """Create the Elasticsearch query for songs."""
     return {
-        "knn": {
-            "field": "title_embedding",
-            "query_vector": query_vector,
-            "k": 50,
-            "num_candidates": 5000,
-            # "boost": 10
-        },
+        # vector search that matches title & lyrics
+        "knn": [
+            {
+                "field": "title_embedding",
+                "query_vector": query_vector,
+                "k": return_size,
+                "num_candidates": 5000,
+                "boost": 0.8
+            },
+            # comment this if lyrics embeddings are not available yet
+            {
+                "field": "lyrics_embedding",
+                "query_vector": query_vector,
+                "k": return_size,
+                "num_candidates": 1000,
+                "boost": 0.2
+            }
+        ],
+        # full-text search
+
         # "query": {
         #     "bool": {
         #         "should": [
@@ -101,12 +114,13 @@ def create_song_query(query, query_vector, return_size = 100):
         #         "minimum_should_match": 1
         #     }
         # },
-        # "rank": {
-        #     # combine full-text & vector search
-        #     "rrf": {
-        #         "rank_window_size": return_size
-        #     }
-        # },
+
+        "rank": {
+            # combine full-text & vector search
+            "rrf": {
+                "rank_window_size": return_size
+            }
+        },
         "highlight": {
             "fields": {
                 "title": {},

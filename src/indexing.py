@@ -46,6 +46,13 @@ SONGS_MAPPING = {
             "type": "text",
             "analyzer": "standard"
         },
+        # comment this field if you only want to try title_embedding
+        "lyrics_embedding": {
+            "type": "dense_vector",
+            "dims": 384,
+            "index": True,
+            "similarity": "cosine"
+        },
         "albumTitle": {
             "type": "text",
             "analyzer": "standard",
