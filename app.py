@@ -14,6 +14,7 @@ from flask_login import (
     login_user,
     logout_user,
 )
+from sentence_transformers import SentenceTransformer
 from spotipy.oauth2 import SpotifyOAuth
 
 from src.elastic_utils import (
@@ -35,6 +36,9 @@ from src.spotipy_utils import (
 
 # Load environment variables
 load_dotenv()
+
+# embedding model
+model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 # Elasticsearch + DB
 ES_LOCAL_PASSWORD = os.environ.get("ES_LOCAL_PASSWORD")
@@ -106,7 +110,8 @@ def search():
 
     if filter_type in ["all", "songs"]:
         # Search and process songs
-        song_results = client.search(index="songs", body=create_song_query(query))
+        query_vector = model.encode(query)
+        song_results = client.search(index="songs", body=create_song_query(query, query_vector))
         hits.extend(process_song_results(hit) for hit in song_results["hits"]["hits"])
 
     # Clean and deduplicate results

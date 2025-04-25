@@ -13,6 +13,12 @@ wheels/
 
 elastic-start-local
 
+# PyCharm
+.idea
+
+# MacOS
+.DS_Store
+
 corpus
 instance
 

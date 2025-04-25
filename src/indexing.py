@@ -1,13 +1,11 @@
 import argparse
 import os
-import re
 import time
-import ijson
 
+import ijson
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
-
 
 load_dotenv()
 
@@ -31,6 +29,12 @@ SONGS_MAPPING = {
                 "keyword": {"type": "keyword", "ignore_above": 256}
             }
         },
+        "title_embedding": {
+            "type": "dense_vector",
+            "dims": 384,
+            "index": True,
+            "similarity": "cosine"
+        },
         "artist": {
             "type": "text",
             "analyzer": "standard",
@@ -41,6 +45,13 @@ SONGS_MAPPING = {
         "lyrics": {
             "type": "text",
             "analyzer": "standard"
+        },
+        # comment this field if you only want to try title_embedding
+        "lyrics_embedding": {
+            "type": "dense_vector",
+            "dims": 384,
+            "index": True,
+            "similarity": "cosine"
         },
         "albumTitle": {
             "type": "text",
@@ -189,7 +200,7 @@ ARTISTS_MAPPING = {
             "analyzer": "standard"
         },
         "dbp_abstract": {
-            "type": "text", 
+            "type": "text",
             "analyzer": "standard"
         },
         "genres": {
@@ -233,6 +244,7 @@ INDEX_MAPPINGS = {
     "artists": ARTISTS_MAPPING
 }
 
+
 # --- Helper Functions ---
 def connect_es():
     print("Connecting to Elasticsearch...")
@@ -266,11 +278,13 @@ def create_index(es_client, index_name, mapping=None):
     else:
         print(f"Index '{index_name}' already exists.")
 
+
 def extract_oid(value):
     """Extract the $oid value from a MongoDB-style ID object."""
     if isinstance(value, dict) and "$oid" in value:
         return value["$oid"]
     return value
+
 
 def process_document(doc):
     """Process a document before indexing."""
@@ -279,7 +293,7 @@ def process_document(doc):
         doc["id_artist"] = extract_oid(doc["id_artist"])
     if "id_album" in doc:
         doc["id_album"] = extract_oid(doc["id_album"])
-    
+
     # Handle deezer_mapping array structure
     if "deezer_mapping" in doc:
         if doc["deezer_mapping"] is None:
@@ -290,13 +304,14 @@ def process_document(doc):
                 for mapping in doc["deezer_mapping"]
                 if isinstance(mapping, (list, tuple)) and len(mapping) == 2
             ]
-    
+
     return doc
+
 
 def generate_bulk_actions(filepath, index_name, subset_size=None):
     print(f"\nProcessing file: {filepath} for index: {index_name}")
     count = 0
-    
+
     # Print size
     file_size = os.path.getsize(filepath) / (1024 * 1024)  # Size in MB
     print(f"File size: {file_size:.2f} MB")
@@ -311,10 +326,10 @@ def generate_bulk_actions(filepath, index_name, subset_size=None):
                         # Extract the $oid for the document ID
                         doc_id = doc.get("_id", {}).get("$oid")
                         del doc["_id"]
-                        
+
                         # Process MongoDB-style IDs
                         doc = process_document(doc)
-                        
+
                         # Yield the bulk action dictionary
                         yield {
                             "_index": index_name,
@@ -342,7 +357,6 @@ def generate_bulk_actions(filepath, index_name, subset_size=None):
         print(f"Error reading file {filepath}: {e}")
 
     print(f"Finished processing {filepath}. Found {count} valid documents.")
-
 
 
 # --- Main Execution ---
@@ -431,10 +445,10 @@ if __name__ == "__main__":
                 print(
                     f"Bulk indexing for {filename}: Success={success}, Errors={len(errors)}"
                 )
-                print(f"Indexing speed: {success/elapsed:.2f} docs/sec")
+                print(f"Indexing speed: {success / elapsed:.2f} docs/sec")
                 print("First 5 error details:")
                 for i, error in enumerate(errors[:5]):
-                    print(f"Error {i+1}:")
+                    print(f"Error {i + 1}:")
                     print(
                         f"  Operation: {error.get('index', {}).get('_op_type', 'unknown')}"
                     )
@@ -451,7 +465,7 @@ if __name__ == "__main__":
                 print(
                     f"Bulk indexing for {filename}: Successfully indexed {success} documents with no errors."
                 )
-                print(f"Indexing speed: {success/elapsed:.2f} docs/sec")
+                print(f"Indexing speed: {success / elapsed:.2f} docs/sec")
 
         except Exception as e:
             print(f"Error during bulk indexing for {filepath}: {e}")
