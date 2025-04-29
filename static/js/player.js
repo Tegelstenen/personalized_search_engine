@@ -15,6 +15,9 @@ class SpotifyPlayer {
 
         this.isDragging = false;
         this.previousVolume = 100;
+        this.currentTrackId = null;
+        this.playStartTime = null;
+        this.trackPlayInterval = null;
 
         this.initializeEventListeners();
         this.startPeriodicUpdate();
@@ -60,6 +63,16 @@ class SpotifyPlayer {
             const isPlaying = data.is_playing;
             const progress = data.progress;
             const duration = data.duration;
+
+            // Update interaction for the previous track
+            if (data.track_id && data.track_id !== this.currentTrackId) {
+                if (this.currentTrackId && this.playStartTime) {
+                    const oldTrackDuration = (Date.now() - this.playStartTime) / 1000;
+                    window.TrackingManager.trackPlay(this.currentTrackId, oldTrackDuration);
+                }
+                this.currentTrackId = data.track_id;
+                this.playStartTime = isPlaying ? Date.now() : null;
+            }
 
             if (trackName && artistName) {
                 this.playerBar.classList.remove('hidden');

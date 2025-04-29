@@ -105,6 +105,7 @@
     <script src="/static/js/player.js"></script>
     <script src="/static/js/metadata.js"></script>
     <script src="/static/js/top-items.js"></script>
+    <script src="/static/js/tracking.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('search-input');
@@ -114,7 +115,7 @@
             const errorDiv = document.getElementById('error-message');
             const rankedResultsDiv = document.getElementById('ranked-results');
             const filterButtons = document.querySelectorAll('.filter-btn');
-            
+
             // Current active filter
             let activeFilter = 'all';
 
@@ -123,13 +124,13 @@
                 button.addEventListener('click', () => {
                     // Remove active class from all buttons
                     filterButtons.forEach(btn => btn.classList.remove('active'));
-                    
+
                     // Add active class to clicked button
                     button.classList.add('active');
-                    
+
                     // Set active filter
                     activeFilter = button.getAttribute('data-filter');
-                    
+
                     // If there are already results, refilter them
                     if (resultsDiv.style.display === 'block') {
                         performSearch();
@@ -144,8 +145,8 @@
                 resultsList.className = 'results-grid';
 
                 // Filter hits based on activeFilter
-                const filteredHits = activeFilter === 'all' 
-                    ? hits 
+                const filteredHits = activeFilter === 'all'
+                    ? hits
                     : hits.filter(hit => hit.type === activeFilter);
 
                 if (filteredHits.length === 0) {
@@ -159,7 +160,7 @@
                 filteredHits.forEach((hit, index) => {
                     const resultItem = document.createElement('div');
                     resultItem.className = `result-card ${hit.type}`;
-                    
+
                     let resultContent = '';
                     switch(hit.type) {
                         case 'artists':
@@ -194,11 +195,12 @@
                             resultItem.classList.add('song-result-card');
                             break;
                     }
-                    
+
                     resultItem.innerHTML = resultContent;
 
                     // Add click event to show metadata
-                    resultItem.addEventListener('click', () => {
+                    resultItem.addEventListener('click', async () => {
+
                         switch(hit.type) {
                             case 'artists':
                                 window.metadataDisplay.displayArtistMetadata(hit);

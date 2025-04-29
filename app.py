@@ -1,5 +1,6 @@
 # type: ignore
 
+import logging
 import os
 from datetime import datetime, timezone
 
@@ -33,6 +34,16 @@ from src.spotipy_utils import (
     format_track_data,
     remove_duplicates,
 )
+from src.user_profile import UserProfileManager
+from src.utils import get_track_lyrics
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(), logging.FileHandler("app.log")],
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -71,6 +82,9 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"  # type: ignore
 
+# Initialize user profile manager
+user_profile_manager = UserProfileManager()
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -90,9 +104,21 @@ def search():
     """Handle search requests across artists, albums, and songs."""
     query = request.args.get("q", "")
     filter_type = request.args.get("filter", "all")
-    
+
     if not query:
         return jsonify({"hits": []})
+
+    # Track the search interaction
+    item_type = "all"
+    if filter_type in ["artists", "songs", "albums"]:
+        item_type = filter_type[:-1]
+
+    user_profile_manager.track_interaction(
+        user_id=current_user.id,
+        interaction_type="search",
+        item_text=query,
+        item_type=item_type,
+    )
 
     hits = []
 
@@ -109,15 +135,89 @@ def search():
         hits.extend(process_album_results(hit) for hit in album_results["hits"]["hits"])
 
     if filter_type in ["all", "songs"]:
+        # Get personalized query embedding
+        personalized_query_vector = user_profile_manager.get_personalized_search_query(
+            current_user.id, query
+        )
+
         # Search and process songs
-        query_vector = model.encode(query)
-        song_results = client.search(index="songs", body=create_song_query(query, query_vector))
+        song_results = client.search(
+            index="songs", body=create_song_query(query, personalized_query_vector)
+        )
         hits.extend(process_song_results(hit) for hit in song_results["hits"]["hits"])
 
     # Clean and deduplicate results
     cleaned_hits = clean_and_deduplicate_results(hits)
 
     return jsonify({"hits": cleaned_hits})
+
+
+@app.route("/track-click", methods=["POST"])
+@login_required
+def track_click():
+    """Track when a user clicks on an item."""
+    try:
+        # Get item_text if provided in request body
+        data = request.get_json() or {}
+        item_text = data.get("item_text")
+        item_type = data.get("item_type", "")
+
+        if not item_text:
+            raise ValueError("item_text is required for embedding")
+
+        user_profile_manager.track_interaction(
+            user_id=current_user.id,
+            interaction_type="click",
+            item_text=item_text,
+            item_type=item_type,
+        )
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Error tracking click: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/track-play/<track_id>", methods=["POST"])
+@login_required
+def track_play(track_id):
+    """Track when a user plays a track."""
+    duration = request.json.get("duration", 0)
+
+    # Get track details from Spotify
+    try:
+        sp = spotipy.Spotify(auth=current_user.spotify_token)
+        track = sp.track(track_id)
+        track_name = track["name"]
+        artist_name = track["artists"][0]["name"]
+        album_name = track["album"]["name"]
+        lyrics = get_track_lyrics(artist_name, track_name)
+        if lyrics:
+            # Format: track info + first few lines of lyrics
+            lyrics_preview = lyrics.split("\n")[:5]  # First 5 lines only
+            lyrics_text = " | ".join(
+                line.strip() for line in lyrics_preview if line.strip()
+            )
+            item_text = (
+                f"{track_name} by {artist_name} from {album_name} | {lyrics_text}"
+            )
+
+            # Truncate if it's too long
+            if len(item_text) > 450:  # Keep within reasonable length
+                item_text = item_text[:450] + "..."
+        else:
+            item_text = f"{track_name} by {artist_name} from {album_name}"
+
+        user_profile_manager.track_interaction(
+            user_id=current_user.id,
+            interaction_type="play",
+            duration=duration,
+            item_text=item_text,
+            item_type="song",
+        )
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Error tracking play: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 # Route for login
@@ -191,6 +291,7 @@ def currently_playing():
         "is_playing": False,
         "progress": 0,
         "duration": 0,
+        "track_id": None,
     }
     try:
         sp = spotipy.Spotify(auth=current_user.spotify_token)
@@ -212,6 +313,7 @@ def currently_playing():
         is_playing = current_track.get("is_playing", False)
         progress = current_track.get("progress_ms", 0)
         duration = current_track.get("item", {}).get("duration_ms", 0)
+        track_id = current_track.get("item", {}).get("id", None)
 
         result = {
             "track_name": track_name,
@@ -220,10 +322,11 @@ def currently_playing():
             "is_playing": is_playing,
             "progress": progress,
             "duration": duration,
+            "track_id": track_id,
         }
         return jsonify(result)
     except Exception as e:
-        print(f"Error getting currently playing: {str(e)}")
+        logger.error(f"Error getting currently playing: {str(e)}")
         return jsonify(result), 401
 
 
@@ -240,7 +343,7 @@ def toggle_playback():
             sp.start_playback()
         return jsonify({"success": True})
     except Exception as e:
-        print(f"Error toggling playback: {str(e)}")
+        logger.error(f"Error toggling playback: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -252,7 +355,7 @@ def next_track():
         sp.next_track()
         return jsonify({"success": True})
     except Exception as e:
-        print(f"Error skipping to next track: {str(e)}")
+        logger.error(f"Error skipping to next track: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -264,7 +367,7 @@ def previous_track():
         sp.previous_track()
         return jsonify({"success": True})
     except Exception as e:
-        print(f"Error going to previous track: {str(e)}")
+        logger.error(f"Error going to previous track: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -283,7 +386,7 @@ def set_volume():
         sp.volume(volume_percent)
         return jsonify({"success": True})
     except Exception as e:
-        print(f"Error setting volume: {str(e)}")
+        logger.error(f"Error setting volume: {str(e)}")
         return jsonify({"error": "Failed to set volume"}), 401
 
 
@@ -303,7 +406,7 @@ def get_top_tracks():
 
         return jsonify({"tracks": tracks[:8]})
     except Exception as e:
-        print(f"Error fetching top tracks: {str(e)}")
+        logger.error(f"Error fetching top tracks: {str(e)}")
         return jsonify({"error": "Failed to fetch top tracks"}), 401
 
 
@@ -322,7 +425,7 @@ def get_top_artists():
         artists = remove_duplicates(artists)
         return jsonify({"artists": artists[:4]})
     except Exception as e:
-        print(f"Error fetching top artists: {str(e)}")
+        logger.error(f"Error fetching top artists: {str(e)}")
         return jsonify({"error": "Failed to fetch top artists"}), 401
 
 
@@ -351,7 +454,7 @@ def get_artist_songs(artist_name):
         tracks = [format_track_data(track) for track in top_tracks["tracks"][:3]]
         return jsonify({"tracks": tracks})
     except Exception as e:
-        print(f"Error getting artist songs from Spotify: {str(e)}")
+        logger.error(f"Error getting artist songs from Spotify: {str(e)}")
         return jsonify({"error": "Failed to fetch artist songs"}), 500
 
 
@@ -376,7 +479,7 @@ def play_track():
         return jsonify({"success": True})
 
     except Exception as e:
-        print(f"Error playing track: {str(e)}")
+        logger.error(f"Error playing track: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -390,7 +493,7 @@ def get_spotify_track(track_id):
         track_data = format_track_data(track)
         return jsonify({"track": track_data})
     except Exception as e:
-        print(f"Error getting Spotify track: {str(e)}")
+        logger.error(f"Error getting Spotify track: {str(e)}")
         return jsonify({"error": "Failed to fetch Spotify track"}), 500
 
 
@@ -404,7 +507,7 @@ def search_spotify_tracks(title):
         tracks = [format_track_data(track) for track in results["tracks"]["items"]]
         return jsonify({"tracks": tracks})
     except Exception as e:
-        print(f"Error searching Spotify tracks: {str(e)}")
+        logger.error(f"Error searching Spotify tracks: {str(e)}")
         return jsonify({"error": "Failed to search Spotify tracks"}), 500
 
 
@@ -423,7 +526,7 @@ def search_spotify_artist(artist_name):
         artist_data = format_artist_data(artist)
         return jsonify({"artist": artist_data})
     except Exception as e:
-        print(f"Error searching Spotify artist: {str(e)}")
+        logger.error(f"Error searching Spotify artist: {str(e)}")
         return jsonify({"error": "Failed to search Spotify artist"}), 500
 
 
@@ -442,7 +545,7 @@ def search_spotify_album(query):
         album_data = format_album_data(album)
         return jsonify({"album": album_data})
     except Exception as e:
-        print(f"Error searching Spotify album: {str(e)}")
+        logger.error(f"Error searching Spotify album: {str(e)}")
         return jsonify({"error": "Failed to search Spotify album"}), 500
 
 
