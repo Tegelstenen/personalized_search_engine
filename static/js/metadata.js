@@ -70,6 +70,13 @@ class MetadataDisplay {
         this.contentDiv.innerHTML = content;
         this.showModal();
 
+        // Create a descriptive text for tracking
+        const artistDescription = `${result.title}` +
+                                 `${artistData.realName && artistData.realName !== artistData.name ? ` (${artistData.realName})` : ''}` +
+                                 `${instruments ? `, ${instruments}` : ''}` +
+                                 `${artistData.subject ? `, ${artistData.subject.join(', ')}` : ''}`;
+        await window.TrackingManager.trackClick(artistDescription, "artist");
+
         // Fetch additional data
         await Promise.all([
             this.fetchSpotifyArtist(result.title),
@@ -79,7 +86,7 @@ class MetadataDisplay {
 
     async displayAlbumMetadata(result) {
         const albumImage = result.image || '/static/default-album.png';
-        
+
         const content = `
             <div class="metadata-header">
                 <img src="${albumImage}" alt="${result.title}" class="metadata-image album-image">
@@ -102,6 +109,13 @@ class MetadataDisplay {
 
         this.contentDiv.innerHTML = content;
         this.showModal();
+
+        // Create a descriptive text for tracking
+        const albumDescription = `${result.title} by ${result.source.artist_name || result.source.name || "Unknown Artist"}` +
+                                `${result.source.genre ? `, ${result.source.genre}` : ''}` +
+                                `${result.source.dateRelease ? `, ${result.source.dateRelease}` : ''}` +
+                                `${result.source.country ? `, ${result.source.country}` : ''}`;
+        await window.TrackingManager.trackClick(albumDescription, "album");
 
         // Fetch Spotify album data
         const searchQuery = `${result.title} ${result.source.artist_name || result.source.name || ''}`.trim();
@@ -138,6 +152,14 @@ class MetadataDisplay {
 
         this.contentDiv.innerHTML = content;
         this.showModal();
+
+        // Create descriptive text for tracking
+        const trackText = `${result.title} by ${result.source.artist || result.source.name || "Unknown Artist"}` +
+                         `${result.source.albumTitle ? ` from ${result.source.albumTitle}` : ''}` +
+                         `${result.source.album_genre ? ` (${result.source.album_genre})` : ''}` +
+                         `${result.source.lyrics ? ` ${result.source.lyrics}` : ''}`;
+
+        await window.TrackingManager.trackClick(trackText, "song");
 
         // Fetch Spotify track data
         const spotifyUrl = result.source.urlSpotify;
