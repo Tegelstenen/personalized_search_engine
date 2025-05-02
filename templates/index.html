@@ -1,268 +1,98 @@
-<!-- templates/index.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spotify Personalized Music Search</title>
-    <link rel="stylesheet" href="/static/styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-</head>
-<body>
-    <div class="user-container">
-        <span>Welcome, <b>{{ current_user.display_name }}</b></span>
-        {% if current_user.profile_image %}
-            <img src="{{ current_user.profile_image }}" alt="Profile" class="profile-image">
-        {% endif %}
-        <a href="{{ url_for('logout') }}" class="logout-button">Logout</a>
+{% extends "base.html" %}
+
+{% block title %}Spotify Personalized Music Search{% endblock %}
+
+{% block content %}
+<div class="main-content">
+    <h1>Personalized Spotify Music Search</h1>
+    <p>Search for a song, album, or artist</p>
+
+    <button class="show-top-items-btn" id="show-top-items">
+        <i class="fas fa-chart-line"></i> See My Top Tracks & Artists
+    </button>
+
+    <div class="search-container">
+        <div class="search-filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="songs">Songs</button>
+            <button class="filter-btn" data-filter="albums">Albums</button>
+            <button class="filter-btn" data-filter="artists">Artists</button>
+        </div>
+        <input type="text" id="search-input" placeholder="Search...">
+        <button id="search-button">Search</button>
     </div>
 
-    <div class="main-content">
-        <h1>Personalized Spotify Music Search</h1>
-        <p>Search for a song, album, or artist</p>
+    <div id="top-items-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <div class="user-top-content">
+                <div class="top-tracks-section">
+                    <h2>Your Top Tracks</h2>
+                    <div id="top-tracks-container" class="top-items-grid"></div>
+                </div>
 
-        <button class="show-top-items-btn" id="show-top-items">
-            <i class="fas fa-chart-line"></i> See My Top Tracks & Artists
-        </button>
-
-        <div class="search-container">
-            <div class="search-filters">
-                <button class="filter-btn active" data-filter="all">All</button>
-                <button class="filter-btn" data-filter="songs">Songs</button>
-                <button class="filter-btn" data-filter="albums">Albums</button>
-                <button class="filter-btn" data-filter="artists">Artists</button>
-            </div>
-            <input type="text" id="search-input" placeholder="Search...">
-            <button id="search-button">Search</button>
-        </div>
-
-        <div id="top-items-modal" class="modal">
-            <div class="modal-content">
-                <span class="close-modal">&times;</span>
-                <div class="user-top-content">
-                    <div class="top-tracks-section">
-                        <h2>Your Top Tracks</h2>
-                        <div id="top-tracks-container" class="top-items-grid"></div>
-                    </div>
-
-                    <div class="top-artists-section">
-                        <h2>Your Top Artists</h2>
-                        <div id="top-artists-container" class="top-items-grid"></div>
-                    </div>
+                <div class="top-artists-section">
+                    <h2>Your Top Artists</h2>
+                    <div id="top-artists-container" class="top-items-grid"></div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <div id="loading">Searching...</div>
+    <div id="loading">Searching...</div>
 
-        <div id="error-message" class="error-message"></div>
+    <div id="error-message" class="error-message"></div>
 
-        <div id="results" class="results">
-            <div id="ranked-results"></div>
+    <div id="results" class="results">
+        <div id="ranked-results"></div>
+    </div>
+
+    <!-- Metadata Modal -->
+    <div id="metadata-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-metadata-modal">&times;</span>
+            <div id="metadata-content"></div>
         </div>
+    </div>
+</div>
 
-        <!-- Metadata Modal -->
-        <div id="metadata-modal" class="modal">
-            <div class="modal-content">
-                <span class="close-metadata-modal">&times;</span>
-                <div id="metadata-content"></div>
+<div id="player-bar" class="player-bar">
+    <div class="player-info">
+        <img src="" alt="" id="player-album-art">
+        <div class="player-song-info">
+            <span id="player-song-name"></span>
+            <span id="player-artist-name"></span>
+        </div>
+    </div>
+    <div class="progress-container">
+        <div class="player-controls">
+            <button class="control-button"><i class="fas fa-backward"></i></button>
+            <button class="control-button play-button" id="play-pause-button">
+                <i class="fas fa-play" id="play-pause-icon"></i>
+            </button>
+            <button class="control-button"><i class="fas fa-forward"></i></button>
+        </div>
+        <div class="progress-bar">
+            <div class="progress" id="song-progress"></div>
+            <div class="time-info">
+                <span id="current-time">0:00</span>
+                <span id="total-time">0:00</span>
             </div>
         </div>
     </div>
-
-    <div id="player-bar" class="player-bar">
-        <div class="player-info">
-            <img src="" alt="" id="player-album-art">
-            <div class="player-song-info">
-                <span id="player-song-name"></span>
-                <span id="player-artist-name"></span>
-            </div>
-        </div>
-        <div class="progress-container">
-            <div class="player-controls">
-                <button class="control-button"><i class="fas fa-backward"></i></button>
-                <button class="control-button play-button" id="play-pause-button">
-                    <i class="fas fa-play" id="play-pause-icon"></i>
-                </button>
-                <button class="control-button"><i class="fas fa-forward"></i></button>
-            </div>
-            <div class="progress-bar">
-                <div class="progress" id="song-progress"></div>
-                <div class="time-info">
-                    <span id="current-time">0:00</span>
-                    <span id="total-time">0:00</span>
-                </div>
-            </div>
-        </div>
-        <div class="player-volume">
-            <i class="fas fa-volume-up"></i>
-            <div class="volume-slider">
-                <div class="volume-progress"></div>
-            </div>
+    <div class="player-volume">
+        <i class="fas fa-volume-up"></i>
+        <div class="volume-slider">
+            <div class="volume-progress"></div>
         </div>
     </div>
+</div>
+{% endblock %}
 
-    <script src="/static/js/player.js"></script>
-    <script src="/static/js/metadata.js"></script>
-    <script src="/static/js/top-items.js"></script>
-    <script src="/static/js/tracking.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const searchInput = document.getElementById('search-input');
-            const searchButton = document.getElementById('search-button');
-            const resultsDiv = document.getElementById('results');
-            const loadingDiv = document.getElementById('loading');
-            const errorDiv = document.getElementById('error-message');
-            const rankedResultsDiv = document.getElementById('ranked-results');
-            const filterButtons = document.querySelectorAll('.filter-btn');
-
-            // Current active filter
-            let activeFilter = 'all';
-
-            // Set up filter buttons
-            filterButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    // Remove active class from all buttons
-                    filterButtons.forEach(btn => btn.classList.remove('active'));
-
-                    // Add active class to clicked button
-                    button.classList.add('active');
-
-                    // Set active filter
-                    activeFilter = button.getAttribute('data-filter');
-
-                    // If there are already results, refilter them
-                    if (resultsDiv.style.display === 'block') {
-                        performSearch();
-                    }
-                });
-            });
-
-            function displayRankedResults(hits) {
-                rankedResultsDiv.innerHTML = '';
-
-                const resultsList = document.createElement('div');
-                resultsList.className = 'results-grid';
-
-                // Filter hits based on activeFilter
-                const filteredHits = activeFilter === 'all'
-                    ? hits
-                    : hits.filter(hit => hit.type === activeFilter);
-
-                if (filteredHits.length === 0) {
-                    const noResults = document.createElement('div');
-                    noResults.className = 'no-results';
-                    noResults.textContent = `No ${activeFilter === 'all' ? '' : activeFilter} results found.`;
-                    rankedResultsDiv.appendChild(noResults);
-                    return;
-                }
-
-                filteredHits.forEach((hit, index) => {
-                    const resultItem = document.createElement('div');
-                    resultItem.className = `result-card ${hit.type}`;
-
-                    let resultContent = '';
-                    switch(hit.type) {
-                        case 'artists':
-                            resultContent = `
-                                <img src="${hit.image || '/static/default-artist.png'}" alt="${hit.title}" class="result-image">
-                                <div class="result-content">
-                                    <div class="title">${hit.title}</div>
-                                    <div class="subtitle">Artist</div>
-                                </div>
-                            `;
-                            break;
-                        case 'albums':
-                            // Get artist name from source if available
-                            const albumArtist = hit.source.artist_name || hit.source.name || 'Unknown artist';
-                            resultContent = `
-                                <img src="${hit.image || '/static/default-album.png'}" alt="${hit.title}" class="result-image">
-                                <div class="result-content">
-                                    <div class="title">${hit.title}</div>
-                                    <div class="subtitle">Album • ${albumArtist}</div>
-                                </div>
-                            `;
-                            break;
-                        case 'songs':
-                            // Get artist name from source if available
-                            const songArtist = hit.source.artist || hit.source.artistName || hit.source.name || 'Unknown artist';
-                            resultContent = `
-                                <div class="result-content song-content">
-                                    <div class="title">${hit.title}</div>
-                                    <div class="subtitle">${songArtist}</div>
-                                </div>
-                            `;
-                            resultItem.classList.add('song-result-card');
-                            break;
-                    }
-
-                    resultItem.innerHTML = resultContent;
-
-                    // Add click event to show metadata
-                    resultItem.addEventListener('click', async () => {
-
-                        switch(hit.type) {
-                            case 'artists':
-                                window.metadataDisplay.displayArtistMetadata(hit);
-                                break;
-                            case 'albums':
-                                window.metadataDisplay.displayAlbumMetadata(hit);
-                                break;
-                            case 'songs':
-                                window.metadataDisplay.displaySongMetadata(hit);
-                                break;
-                        }
-                    });
-
-                    resultsList.appendChild(resultItem);
-                });
-
-                rankedResultsDiv.appendChild(resultsList);
-            }
-
-            // Event listeners and updates
-            searchButton.addEventListener('click', performSearch);
-            searchInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    performSearch();
-                }
-            });
-
-            async function performSearch() {
-                const query = searchInput.value.trim();
-
-                if (!query) {
-                    resultsDiv.style.display = 'none';
-                    return;
-                }
-
-                loadingDiv.style.display = 'block';
-                resultsDiv.style.display = 'none';
-                errorDiv.textContent = '';
-
-                try {
-                    const response = await fetch(`/search?q=${encodeURIComponent(query)}&filter=${activeFilter}`);
-                    const data = await response.json();
-
-                    if (response.status === 401) {
-                        window.location.href = '/login';
-                        return;
-                    }
-
-                    if (data.error) {
-                        errorDiv.textContent = data.error;
-                        return;
-                    }
-
-                    displayRankedResults(data.hits);
-                    resultsDiv.style.display = 'block';
-                } catch (error) {
-                    errorDiv.textContent = 'An error occurred while searching. Please try again.';
-                } finally {
-                    loadingDiv.style.display = 'none';
-                }
-            }
-        });
-    </script>
-</body>
-</html>
+{% block scripts %}
+<script src="/static/js/player.js"></script>
+<script src="/static/js/metadata.js"></script>
+<script src="/static/js/top-items.js"></script>
+<script src="/static/js/tracking.js"></script>
+<script src="/static/js/search.js"></script>
+{% endblock %}

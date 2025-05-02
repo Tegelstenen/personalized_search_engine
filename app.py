@@ -36,6 +36,7 @@ from src.spotipy_utils import (
 )
 from src.user_profile import UserProfileManager
 from src.utils import get_track_lyrics
+from src.metrics import SearchMetrics  # Import the SearchMetrics class
 
 # Configure logging
 logging.basicConfig(
@@ -84,6 +85,8 @@ login_manager.login_view = "login"  # type: ignore
 
 # Initialize user profile manager
 user_profile_manager = UserProfileManager()
+# Initialize search metrics
+search_metrics = SearchMetrics()
 
 
 @login_manager.user_loader
@@ -547,6 +550,58 @@ def search_spotify_album(query):
     except Exception as e:
         logger.error(f"Error searching Spotify album: {str(e)}")
         return jsonify({"error": "Failed to search Spotify album"}), 500
+
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    """Display personalization metrics dashboard."""
+    # Get metrics for current user
+    user_metrics = search_metrics.get_user_metrics(current_user.id)
+    
+    # Get average metrics across all users
+    avg_metrics = search_metrics.get_avg_user_metrics()
+    
+    # Organize metrics for template
+    metrics_by_period = {
+        "1d": {},
+        "7d": {},
+        "30d": {}
+    }
+    
+    # Organize user metrics by time period
+    for key, value in user_metrics.items():
+        for period in metrics_by_period.keys():
+            if key.endswith(period):
+                metric_name = key.replace(f"_{period}", "")
+                metrics_by_period[period][metric_name] = value
+    
+    # Organize average metrics by time period
+    avg_metrics_by_period = {
+        "1d": {},
+        "7d": {},
+        "30d": {}
+    }
+    
+    for key, value in avg_metrics.items():
+        for period in avg_metrics_by_period.keys():
+            if key.endswith(period):
+                metric_name = key.replace(f"_{period}", "")
+                avg_metrics_by_period[period][metric_name] = value
+    
+    # Calculate total searches, clicks, and plays
+    total_searches = user_metrics.get("search_count_30d", 0)
+    total_clicks = user_metrics.get("click_count_30d", 0)
+    total_plays = user_metrics.get("play_count_30d", 0)
+    
+    return render_template(
+        "dashboard.html",
+        metrics_by_period=metrics_by_period,
+        avg_metrics_by_period=avg_metrics_by_period,
+        total_searches=total_searches,
+        total_clicks=total_clicks,
+        total_plays=total_plays
+    )
 
 
 if __name__ == "__main__":
