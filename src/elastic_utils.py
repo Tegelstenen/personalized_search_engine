@@ -430,11 +430,15 @@ def clean_and_deduplicate_results(hits):
         hit["title"] = remove_html_tags(hit["title"])
         hit["content"] = remove_html_tags(hit["content"])
 
-        # Create a key for deduplication (type + cleaned title)
-        key = hit["title"].lower()
+        # Retrieve titel, type and artist for hit
+        hit_title = hit["title"].lower()
         hit_type = hit["type"]
+        hit_artist = hit["source"]["name"].lower()
 
-        # If we haven't seen this title for this type, add it
+        # Create a key for deduplication ((title, artist))
+        key = (hit_title, hit_artist)
+
+        # If we haven't seen this title+artist for this type, add it
         if key not in seen_titles[hit_type]:
             seen_titles[hit_type].add(key)
             preprocessed.append(hit)
