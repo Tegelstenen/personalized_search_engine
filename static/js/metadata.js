@@ -37,11 +37,7 @@ class MetadataDisplay {
     async displaySongMetadata(result) {
         const content = `
             <div class="metadata-header song-metadata-header">
-                <div class="song-icon">
-                    <i class="fas fa-music"></i>
-                </div>
                 <div class="metadata-title">
-                    <h3>Song Information</h3>
                     <h2>${result.title}</h2>
                     <p class="metadata-subtitle">by ${result.source.artist || result.source.name || "Unknown Artist"}</p>
                 </div>
@@ -51,12 +47,6 @@ class MetadataDisplay {
                 ${result.source.album_genre ? `<p><strong>Genre:</strong> ${result.source.album_genre}</p>` : ''}
                 ${result.source.bpm ? `<p><strong>BPM:</strong> ${result.source.bpm}</p>` : ''}
                 ${result.source.language ? `<p><strong>Language:</strong> ${result.source.language}</p>` : ''}
-                ${result.preview ? `
-                    <div class="preview-player">
-                        <strong>Preview:</strong>
-                        <audio controls src="${result.preview}"></audio>
-                    </div>
-                ` : ''}
                 ${result.source.lyrics ? `<div class="lyrics-section"><strong>Lyrics:</strong><div class="lyrics">${result.source.lyrics}</div></div>` : ''}
             </div>
             <div id="spotify-matches" class="artist-songs">Loading Spotify matches...</div>
@@ -134,10 +124,10 @@ class MetadataDisplay {
                         <div class="song-info">
                             <h5>${track.title}</h5>
                             <p>${track.artist} • ${track.album}</p>
-                            <button class="play-song-btn" data-uri="${track.id}">
-                                <i class="fas fa-play"></i> Play
-                            </button>
                         </div>
+                        <button class="play-song-btn" data-uri="${track.id}">
+                            <i class="fas fa-play"></i>
+                        </button>
                     </div>
                 `).join('')}
             </div>

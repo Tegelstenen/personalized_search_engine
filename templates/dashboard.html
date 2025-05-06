@@ -7,57 +7,70 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
     .metric-card {
-        background: #fff;
+        background: var(--spotify-light-gray);
         border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        padding: 16px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        padding: 20px;
         margin-bottom: 20px;
+        transition: transform 0.2s ease;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-5px);
     }
 
     .metric-value {
         font-size: 28px;
         font-weight: bold;
         margin: 12px 0;
+        color: var(--spotify-green);
     }
 
     .metric-label {
-        color: #666;
+        color: var(--spotify-text-gray);
         font-size: 14px;
         text-transform: uppercase;
+        letter-spacing: 1px;
     }
 
     .chart-container {
         height: 300px;
         margin-bottom: 30px;
+        background-color: var(--spotify-light-gray);
+        padding: 20px;
+        border-radius: 8px;
     }
 
     .metrics-definition {
-        background-color: #f9f9f9;
+        background-color: var(--spotify-light-gray);
         border-radius: 8px;
-        padding: 15px;
+        padding: 20px;
         margin-top: 30px;
     }
 
     .metrics-definition h3 {
         font-size: 18px;
         margin-bottom: 15px;
+        color: var(--spotify-white);
     }
 
     .metrics-definition dl dt {
         font-weight: bold;
         margin-top: 10px;
+        color: var(--spotify-green);
     }
 
     .metrics-definition dl dd {
         margin-bottom: 10px;
-        color: #555;
+        color: var(--spotify-text-gray);
     }
 
     .chart-title {
         font-size: 18px;
         font-weight: bold;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
         text-align: center;
+        color: var(--spotify-white);
     }
 
     .metrics-section {
@@ -73,16 +86,28 @@
     .last-updated {
         text-align: right;
         font-style: italic;
-        color: #666;
+        color: var(--spotify-text-gray);
         font-size: 12px;
         margin-bottom: 15px;
+    }
+
+    .chart-description {
+        color: var(--spotify-text-gray);
+        font-size: 12px;
+        margin-top: 10px;
+    }
+
+    /* Override Chart.js defaults for Spotify theme */
+    canvas {
+        background-color: var(--spotify-light-gray);
+        border-radius: 8px;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1 class="mb-4">Search Metrics Dashboard</h1>
+<div class="container mt-4 mb-5">
+    <h1 class="mb-4">Metrics Dashboard</h1>
 
     <div class="last-updated" id="last-updated">Last updated: {{ datetime.now().strftime('%H:%M:%S') }}</div>
 
@@ -116,10 +141,26 @@
             </div>
         </div>
     </div>
+</div>
 
 <script>
     // Initialize metrics data for external JS
     window.initialMetricsOverTime = JSON.parse('{{ metrics_over_time|tojson|safe }}');
+
+    // Update Chart.js defaults for Spotify theme
+    Chart.defaults.color = '#b3b3b3';
+    Chart.defaults.borderColor = '#333';
+
+    // Add to dashboard.js to ensure charts use Spotify colors
+    document.addEventListener('DOMContentLoaded', function() {
+        // Modify dashboard.js to use Spotify colors
+        if (window.dashboardConfig) {
+            window.dashboardConfig.colors = {
+                precision5: '#1DB954',
+                precision10: '#1ed760'
+            };
+        }
+    });
 </script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}

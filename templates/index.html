@@ -2,18 +2,125 @@
 
 {% block title %}Spotify Personalized Music Search{% endblock %}
 
+{% block head %}
+{{ super() }}
+<style>
+    .main-content {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+        padding-bottom: 100px;
+    }
+
+    .welcome-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+
+    .welcome-header h1 {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+        color: var(--spotify-white);
+        font-weight: 700;
+    }
+
+    .welcome-header p {
+        color: var(--spotify-text-gray);
+        font-size: 1.1rem;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .search-container {
+        background-color: var(--spotify-light-gray);
+        padding: 25px;
+        border-radius: 8px;
+        margin: 30px auto;
+        max-width: 800px;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .search-container input {
+        width: 70%;
+        padding: 15px 20px;
+        border-radius: 30px;
+        border: none;
+        background-color: var(--spotify-dark-gray);
+        color: var(--spotify-white);
+        font-size: 1rem;
+    }
+
+    .search-container button {
+        padding: 15px 25px;
+        margin-left: 10px;
+        border-radius: 30px;
+        background-color: var(--spotify-green);
+        color: var(--spotify-black);
+        border: none;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .search-container button:hover {
+        background-color: var(--spotify-green-hover);
+        transform: scale(1.05);
+    }
+
+    .show-top-items-btn {
+        margin: 40px auto 20px;
+        padding: 14px 30px;
+    }
+
+    #top-items-modal .modal-content {
+        background-color: var(--spotify-dark-gray);
+        color: var(--spotify-white);
+    }
+
+    .top-tracks-section h2,
+    .top-artists-section h2 {
+        color: var(--spotify-white);
+        margin-bottom: 20px;
+        font-size: 1.5rem;
+        position: relative;
+        display: inline-block;
+    }
+
+    .top-tracks-section h2:after,
+    .top-artists-section h2:after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 0;
+        width: 40px;
+        height: 3px;
+        background-color: var(--spotify-green);
+    }
+
+    #ranked-results {
+        margin-top: 30px;
+    }
+
+    .search-container input:focus {
+        outline: none;
+        border: none;
+        box-shadow: none;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="main-content">
-    <h1>Personalized Spotify Music Search</h1>
-    <p>Search for songs</p>
+
 
     <button class="show-top-items-btn" id="show-top-items">
         <i class="fas fa-chart-line"></i> See My Top Tracks & Artists
     </button>
 
     <div class="search-container">
-        <input type="text" id="search-input" placeholder="Search for songs...">
-        <button id="search-button">Search</button>
+        <input type="text" id="search-input" placeholder="Search for songs, artists, or albums...">
+        <button id="search-button"><i class="fas fa-search"></i> Search</button>
     </div>
 
     <div id="top-items-modal" class="modal">
@@ -33,7 +140,9 @@
         </div>
     </div>
 
-    <div id="loading">Searching...</div>
+    <div id="loading">
+        <i class="fas fa-circle-notch fa-spin"></i> Searching...
+    </div>
 
     <div id="error-message" class="error-message"></div>
 

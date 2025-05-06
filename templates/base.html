@@ -7,23 +7,39 @@
     <link rel="stylesheet" href="/static/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADd0lEQVR4AcWWA7DsWhCGv7Vt27Zt27Zt27btTTxnbdtdxzbG/XOneXtqOulJTjrfUPlPdDgdYx2uuV0O1ym7wzXP4XLNB8bYnY4JDqdzJOjf+l2/dbjmutxZ5C73QpfLPcfpcM50OBwTHA7H/1PAbnc6nE7XdLfbvdjtdi9yud0rnS7XGqfLtd7hdG21293bHU73JqfTudJhu8JM7dJA31rQvzMC/DYJiMPhcjldbpfT45nscnuXg/mAd4fX6z3o9fpOeL2+817vxUs+3+UbXt+Ve36//4rf7zvs9/t2+X3eNX7ftJn+wJiBgaBfGwD/C47D4XY6PW6XxzPa4/WMB2O6z++Zjo/k8PoIRVMcvPqI/Vee8Zv1MVN3XGP85msmb7nI1B03mLD5CmO3XKTi5F18oYgP/JFAwDc95PcOiQQC/YAu0UwDHs8Ej3dqL793XDUYhq25wI1X7wnHUuTyRXL5AqriZIoqiXSObC5POqeSyRVQTSXIZrPgn0T85/ZeCPmHNoQCAwuUZzIkLK7Jfu/g+mAoWh3Ox2a6cJtHT9/iT6RRFcmiFKg6nCtKRlEySJYTz2aJRyLEY1HyORWckXFRU0MkMrguGh6qFwqE4oPQ7/dP9vsHjfX7p/SOKW5D+7UXiYST5EQp3lhWKu+mhJI1xTKmmKIQj8aIhkOoSg7cUyIzw0b13P6D4/6ZFaBUfn+/cYFAvzaRUIxeax8SjqfIZXMUxK+lpJRJq5J5PBolFvH7yWUz4Jvom9W3dSQ8uA0QlaoKKNzgQKBXy0h0etttd1BFiTKZjJQ1LkqkSsZJWRtVLJmIE4+GycTDoDwLzA0bw0b1nIGDO0aDg4FCZULyXEA42GdIOGposPcRSi4vlc+Q+pqKnUqnpPoJYrEwyXiMTDIJ+IIL+jSLRoZ3EAqFQiH5EJ9Qh+jI7u2isfHNE6mMweN2k0gkSCaTJBIJYtEoiXicZDxKMh4hFQ+TTsRIJxNkUin+eDhoAP+kFpHIuJby41HJTCPULurvNzIWG9opkUwZvR4PiUSCaDQqu4BCPBIiEQkS92cUMikBTwJ+fvnBODM2t0NkRCegIIr9L3gXof5RX+9xiXis58dv35n+fPcJ/nj/jacrJ/ly8wTfbxzjx/XDfLu6j09X9vDx0i4+XtzOhws7eH9+E+/ObmbppPFdYpHRHcGvVAHm7ws/AS6lRNhpQfUuAAAAAElFTkSuQmCC">
     {% block head %}{% endblock %}
     <style>
         .navbar {
             background-color: #191414;
-            padding: 10px 20px;
+            padding: 16px 24px;
+            border-bottom: 1px solid #333;
         }
 
         .navbar-brand {
             color: #1DB954;
             font-weight: bold;
             font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .navbar-brand:hover, .navbar-brand:active, .navbar-brand:focus {
+            color: #1DB954;
+            text-decoration: none;
+            cursor: default;
+        }
+
+        .navbar-brand i {
+            font-size: 24px;
         }
 
         .navbar-nav .nav-link {
-            color: #fff;
+            color: #b3b3b3;
             margin: 0 10px;
             transition: color 0.3s;
+            font-weight: 500;
         }
 
         .navbar-nav .nav-link:hover,
@@ -31,8 +47,12 @@
             color: #1DB954;
         }
 
+        .navbar .navbar-toggler {
+            border-color: #333;
+        }
+
         .navbar .navbar-toggler-icon {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 1)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(29, 185, 84, 1)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
         }
 
         .profile-section {
@@ -45,25 +65,29 @@
             height: 32px;
             border-radius: 50%;
             margin-right: 10px;
+            border: 2px solid #1DB954;
         }
 
         .user-name {
             color: #fff;
             margin-right: 15px;
+            font-weight: 500;
         }
 
         .logout-btn {
             color: #fff;
             background-color: transparent;
             border: 1px solid #1DB954;
-            padding: 5px 10px;
-            border-radius: 4px;
+            padding: 5px 15px;
+            border-radius: 20px;
             transition: all 0.3s;
+            text-decoration: none;
+            font-weight: 500;
         }
 
         .logout-btn:hover {
             background-color: #1DB954;
-            color: #000;
+            color: #191414;
         }
     </style>
 </head>
@@ -71,7 +95,9 @@
     {% if current_user.is_authenticated %}
     <nav class="navbar navbar-expand-lg">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('home') }}">Music Search</a>
+            <span class="navbar-brand">
+                <i class="fab fa-spotify"></i> Music Search
+            </span>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
