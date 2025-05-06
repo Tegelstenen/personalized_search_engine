@@ -22,7 +22,7 @@ from src.elastic_utils import (
     process_song_results,
 )
 from src.metrics import SearchMetrics
-from src.models import User, db
+from src.models import User, UserInteraction, db
 from src.spotipy_utils import (
     format_album_data,
     format_artist_data,
@@ -607,6 +607,21 @@ def update_precision():
     except Exception as e:
         logger.error(f"Error updating precision: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/reset-app", methods=["POST"])
+@login_required
+def reset_app():
+    try:
+        # Reset all metrics for the current user
+        search_metrics._reset_user_metrics(current_user.id)
+
+        # Return success response
+        return jsonify({"success": True})
+    except Exception as e:
+        # Log the error and return failure response
+        app.logger.error(f"Error in reset_app: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
 
 
 if __name__ == "__main__":

@@ -90,16 +90,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (metadata) {
             updateTotalMetrics(metadata);
-            sessionStorage.setItem('dashboardMetrics', JSON.stringify({
-                metrics_over_time: newData,
-                latest_metrics: metadata.latest_metrics,
-                total_searches: metadata.total_searches,
-                total_interactions: metadata.total_interactions,
-                most_played_song: metadata.most_played_song,
-                most_liked_album: metadata.most_liked_album,
-                most_liked_artist: metadata.most_liked_artist,
-                timestamp: new Date().toISOString()
-            }));
         }
     }
 
@@ -150,23 +140,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function fetchMetrics() {
         try {
-            // Check if we have recent cached metrics (from the last 1 second)
-            const cachedData = sessionStorage.getItem('dashboardMetrics');
-            if (cachedData) {
-                const parsedCache = JSON.parse(cachedData);
-                const cacheTime = new Date(parsedCache.timestamp);
-                const now = new Date();
-                const cacheAgeMs = now - cacheTime;
-
-                // If cache is fresh (less than 1 second old), use it
-                if (cacheAgeMs < 1000) {
-                    console.log("Using cached metrics data");
-                    updateCharts(parsedCache.metrics_over_time, parsedCache);
-                    return;
-                }
-            }
-
-            // Use the new dedicated endpoint for faster updates
             const response = await fetch('/latest-metrics');
             if (response.ok) {
                 const data = await response.json();
@@ -192,35 +165,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             console.error('Error fetching metrics:', error);
-
-            // If fetching fails, try to use cached data regardless of age
-            try {
-                const cachedData = sessionStorage.getItem('dashboardMetrics');
-                if (cachedData) {
-                    const parsedCache = JSON.parse(cachedData);
-                    console.log("Using cached metrics data due to fetch error");
-                    updateCharts(parsedCache.metrics_over_time, parsedCache);
-
-                    if (document.getElementById('last-updated')) {
-                        document.getElementById('last-updated').textContent =
-                            `Last updated: ${new Date(parsedCache.timestamp).toLocaleTimeString()} (cached)`;
-                    }
-                }
-            } catch (cacheError) {
-                console.error('Error using cached metrics:', cacheError);
-            }
         }
     }
 
     createCharts();
 
-    // Setup localStorage event listener for cross-tab communication
-    window.addEventListener('storage', function(e) {
-        // Only react to dashboard update events
-        if (e.key === 'dashboard_update') {
-            console.log('Received dashboard update notification');
-            fetchMetrics();
-        }
+    // Listen for custom metrics update events
+    window.addEventListener('metrics_updated', function() {
+        console.log('Received metrics update notification');
+        fetchMetrics();
     });
 
     // Also fetch when the dashboard becomes visible again
@@ -234,6 +187,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initial fetch when the page loads
     fetchMetrics();
 
-    // Refresh metrics every 2 seconds
-    setInterval(fetchMetrics, 2000);
+    // Refresh metrics every 10 seconds
+    setInterval(fetchMetrics, 10000);
 });
