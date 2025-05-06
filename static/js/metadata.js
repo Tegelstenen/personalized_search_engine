@@ -55,13 +55,11 @@ class MetadataDisplay {
         this.contentDiv.innerHTML = content;
         this.showModal();
 
-        // Create descriptive text for tracking
+        // Create descriptive text for tracking with album information
         const trackText = `${result.title} by ${result.source.artist || result.source.name || "Unknown Artist"}` +
-                         `${result.source.albumTitle ? ` from ${result.source.albumTitle}` : ''}` +
-                         `${result.source.album_genre ? ` (${result.source.album_genre})` : ''}` +
-                         `${result.source.lyrics ? ` ${result.source.lyrics}` : ''}`;
+                         `${result.source.albumTitle ? ` from ${result.source.albumTitle}` : ''}`;
 
-        await window.TrackingManager.trackClick(trackText, "song");
+        await window.TrackingManager.trackLike(trackText);
 
         // Fetch Spotify track data
         const spotifyUrl = result.source.urlSpotify;
@@ -170,7 +168,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const button = event.target.closest('.like-button');
             const itemText = button.dataset.itemText;
 
-            await window.TrackingManager.trackLike(itemText);
+            // Ensure itemText has album information
+            if (!itemText.includes(' from ')) {
+                const songInfo = itemText.split(' by ');
+                if (songInfo.length === 2) {
+                    const [title, artist] = songInfo;
+                    const albumTitle = button.dataset.albumTitle;
+                    if (albumTitle) {
+                        const newItemText = `${title} by ${artist} from ${albumTitle}`;
+                        await window.TrackingManager.trackLike(newItemText);
+                    } else {
+                        await window.TrackingManager.trackLike(itemText);
+                    }
+                } else {
+                    await window.TrackingManager.trackLike(itemText);
+                }
+            } else {
+                await window.TrackingManager.trackLike(itemText);
+            }
+
             button.innerHTML = '<i class="fas fa-heart"></i>';
             button.classList.add('liked');
         }

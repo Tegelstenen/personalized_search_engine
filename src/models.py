@@ -5,7 +5,7 @@ from datetime import datetime
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 db = SQLAlchemy()
 
@@ -22,6 +22,11 @@ class User(UserMixin, db.Model):
     user_embedding = Column(JSON)  # Store the user's profile embedding
     last_updated = Column(DateTime, default=datetime.utcnow)
 
+    # Relationships
+    interactions = relationship("UserInteraction", back_populates="user")
+    search_sessions = relationship("SearchSession", back_populates="user")
+    metrics = relationship("UserMetrics", back_populates="user", uselist=False)
+
 
 class UserInteraction(db.Model):
     __tablename__ = "user_interaction"
@@ -30,7 +35,7 @@ class UserInteraction(db.Model):
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), nullable=False)
     interaction_type: Mapped[str] = mapped_column(
         String(50), nullable=False
-    )  # 'search', 'click', 'play'
+    )  # 'search', 'click', 'play', 'like'
     item_type: Mapped[str] = mapped_column(
         String(50), nullable=False
     )  # 'track', 'artist', 'album'
@@ -38,7 +43,60 @@ class UserInteraction(db.Model):
         String(500)
     )  # Text representation of the item
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    duration: Mapped[float] = mapped_column(Float)  # For play interactions
+    duration: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )  # For play interactions
     relevance_score: Mapped[float] = mapped_column(
-        Float
+        Float, nullable=False, default=0.3
     )  # User's implicit feedback score
+    session_id: Mapped[str | None] = mapped_column(
+        String(100), ForeignKey("search_session.session_id"), nullable=True
+    )
+
+    # Relationships
+    user = relationship("User", back_populates="interactions")
+    session = relationship("SearchSession", back_populates="interactions")
+
+
+# New model for search sessions
+class SearchSession(db.Model):
+    __tablename__ = "search_session"
+
+    session_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), nullable=False)
+    query: Mapped[str] = mapped_column(String(200), nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    precision_at_5: Mapped[float] = mapped_column(Float, default=0.0)
+    precision_at_10: Mapped[float] = mapped_column(Float, default=0.0)
+
+    # Relationships
+    user = relationship("User", back_populates="search_sessions")
+    interactions = relationship("UserInteraction", back_populates="session")
+
+
+# New model for user metrics
+class UserMetrics(db.Model):
+    __tablename__ = "user_metrics"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user.id"), unique=True, nullable=False
+    )
+    search_count: Mapped[int] = mapped_column(Integer, default=0)
+    interaction_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_updated: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Additional metrics that were previously calculated on demand
+    most_played_song: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    most_played_artist: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    most_played_duration: Mapped[float] = mapped_column(Float, default=0.0)
+    most_liked_album: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    most_liked_album_artist: Mapped[str | None] = mapped_column(
+        String(200), nullable=True
+    )
+    most_liked_album_count: Mapped[int] = mapped_column(Integer, default=0)
+    most_liked_artist: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    most_liked_artist_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Relationship
+    user = relationship("User", back_populates="metrics")

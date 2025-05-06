@@ -1,6 +1,6 @@
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import spotipy
 from dotenv import load_dotenv
@@ -22,7 +22,7 @@ from src.elastic_utils import (
     process_song_results,
 )
 from src.metrics import SearchMetrics
-from src.models import User, db
+from src.models import User, UserInteraction, db
 from src.spotipy_utils import (
     format_album_data,
     format_artist_data,
@@ -60,6 +60,13 @@ assert SPOTIFY_CLIENT_SECRET is not None
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
+# Add Spotify configuration
+app.config["SPOTIFY_CLIENT_ID"] = SPOTIFY_CLIENT_ID
+app.config["SPOTIFY_CLIENT_SECRET"] = SPOTIFY_CLIENT_SECRET
+app.config["SPOTIFY_REDIRECT_URI"] = "http://127.0.0.1:5000/callback"
+app.config["SPOTIFY_SCOPE"] = (
+    "user-read-email user-read-private user-read-currently-playing user-modify-playback-state user-top-read user-read-playback-state"
+)
 
 client = Elasticsearch(
     "http://localhost:9200",
@@ -136,6 +143,11 @@ def track_click():
         if not item_text:
             return jsonify({"error": "Missing required fields"}), 400
 
+        # If this is a like interaction, make sure we set the interaction_type to "like"
+        if interaction_type == "like":
+            interaction_type = "like"
+            logger.info(f"Tracking like interaction: {item_text}")
+
         updated_metrics = search_metrics.track_interaction(
             user_id=current_user.id,
             interaction_type=interaction_type,
@@ -152,48 +164,95 @@ def track_click():
 @app.route("/track-play/<track_id>", methods=["POST"])
 @login_required
 def track_play(track_id):
-    """Track when a user plays a track."""
-    duration = request.json.get("duration", 0)
+    if not track_id:
+        return jsonify({"success": False, "error": "No track ID provided"})
 
-    # Get track details from Spotify
     try:
-        sp = spotipy.Spotify(auth=current_user.spotify_token)
-        track = sp.track(track_id)
-        track_name = track["name"]
-        artist_name = track["artists"][0]["name"]
-        album_name = track["album"]["name"]
-        lyrics = get_track_lyrics(artist_name, track_name)
-        if lyrics:
+        data = request.json
+        duration = data.get("duration", 0)
+        item_text = data.get("item_text", "")  # Get item_text from request data
 
-            lyrics_preview = lyrics.split("\n")[:5]
-            lyrics_text = " | ".join(
-                line.strip() for line in lyrics_preview if line.strip()
-            )
-            item_text = (
-                f"{track_name} by {artist_name} from {album_name} | {lyrics_text}"
-            )
+        # Only try to get track info if item_text is not provided
+        if not item_text:
+            try:
+                sp = get_spotify_client()
+                track_info = sp.track(track_id)
 
-            if len(item_text) > 450:  # Keep within reasonable length
-                item_text = item_text[:450] + "..."
-        else:
-            item_text = f"{track_name} by {artist_name} from {album_name}"
+                track_name = track_info["name"]
+                artist_name = track_info["artists"][0]["name"]
+                album_name = track_info["album"]["name"]
 
-        user_profile_manager.track_interaction(
+                item_text = f"{track_name} by {artist_name} from {album_name}"
+                app.logger.info(f"Successfully retrieved track info: {item_text}")
+            except Exception as e:
+                app.logger.error(f"Error getting track info for {track_id}: {str(e)}")
+                # If we can't get track info, use a fallback item_text
+                item_text = f"Track {track_id}"
+                app.logger.warning(f"Using fallback item_text: {item_text}")
+
+        # Track the play interaction with the search metrics service
+        search_metrics.track_interaction(
             user_id=current_user.id,
             interaction_type="play",
-            duration=duration,
             item_text=item_text,
             item_type="song",
+            duration=duration,
         )
 
-        updated_metrics = search_metrics.track_interaction(
-            user_id=current_user.id, interaction_type="play", item_text=item_text
-        )
-
-        return jsonify({"success": True, "latest_metrics": updated_metrics or {}})
+        return jsonify({"success": True})
     except Exception as e:
-        logger.error(f"Error tracking play: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        app.logger.error(f"Error tracking play: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/get-track-info/<track_id>", methods=["GET"])
+@login_required
+def get_track_info(track_id):
+    try:
+        sp = get_spotify_client()
+        track_info = sp.track(track_id)
+
+        formatted_track = {
+            "id": track_info["id"],
+            "title": track_info["name"],
+            "artist": track_info["artists"][0]["name"],
+            "album": track_info["album"]["name"],
+            "image": (
+                track_info["album"]["images"][0]["url"]
+                if track_info["album"]["images"]
+                else None
+            ),
+            "preview_url": track_info.get("preview_url"),
+            "external_url": track_info["external_urls"].get("spotify"),
+        }
+
+        return jsonify({"success": True, "track": formatted_track})
+    except Exception as e:
+        app.logger.error(f"Error getting track info: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+# Helper function to get Spotify client
+def get_spotify_client():
+    if (
+        current_user.spotify_token_expiry
+        and current_user.spotify_token_expiry < datetime.now()
+    ):
+        # Token expired, refresh it
+        token_info = spotipy.SpotifyOAuth(
+            client_id=app.config["SPOTIFY_CLIENT_ID"],
+            client_secret=app.config["SPOTIFY_CLIENT_SECRET"],
+            redirect_uri=app.config["SPOTIFY_REDIRECT_URI"],
+            scope=app.config["SPOTIFY_SCOPE"],
+        ).refresh_access_token(current_user.spotify_refresh_token)
+
+        current_user.spotify_token = token_info["access_token"]
+        current_user.spotify_token_expiry = datetime.now() + timedelta(
+            seconds=token_info["expires_in"]
+        )
+        db.session.commit()
+
+    return spotipy.Spotify(auth=current_user.spotify_token)
 
 
 @app.route("/login")
@@ -524,57 +583,79 @@ def search_spotify_album(query):
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    """Display personalization metrics dashboard."""
+    """Show the metrics dashboard."""
+    # Get user metrics
     user_metrics = search_metrics.get_user_metrics(current_user.id)
     metrics_over_time = search_metrics.get_all_session_metrics(current_user.id)
+    most_played_song = search_metrics.get_most_played_song(current_user.id)
+    most_liked_album = search_metrics.get_most_liked_album(current_user.id)
+    most_liked_artist = search_metrics.get_most_liked_artist(current_user.id)
 
-    total_searches = user_metrics.get("search_count", 0)
-    total_interactions = user_metrics.get("interaction_count", 0)
-
-    if request.args.get("json") == "true":
+    # If it's an AJAX request, return JSON
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify(
             {
-                "total_searches": total_searches,
-                "total_interactions": total_interactions,
+                "total_searches": user_metrics["search_count"],
+                "total_interactions": user_metrics["interaction_count"],
                 "metrics_over_time": metrics_over_time,
+                "most_played_song": most_played_song,
+                "most_liked_album": most_liked_album,
+                "most_liked_artist": most_liked_artist,
             }
         )
 
+    # Otherwise render the template
     return render_template(
         "dashboard.html",
-        total_searches=total_searches,
-        total_interactions=total_interactions,
+        total_searches=user_metrics["search_count"],
+        total_interactions=user_metrics["interaction_count"],
         metrics_over_time=metrics_over_time,
-        datetime=datetime,
+        most_played_song=most_played_song,
+        most_liked_album=most_liked_album,
+        most_liked_artist=most_liked_artist,
+        current_time=datetime.now().strftime("%H:%M:%S"),
     )
 
 
 @app.route("/latest-metrics")
 @login_required
-def get_latest_metrics():
-    """Get the latest metrics for the current user's most recent search."""
-    latest_metrics = search_metrics.get_latest_search_metrics(current_user.id)
+def latest_metrics():
+    """Get the latest metrics for the dashboard."""
+    try:
+        # Add cache busting using query timestamp
+        cache_buster = request.args.get("_", "")
+        app.logger.info(f"Fetching latest metrics with cache buster: {cache_buster}")
 
-    # Get all metrics over time
-    metrics_over_time = search_metrics.get_all_session_metrics(current_user.id)
+        # Get metrics over time for chart
+        metrics_over_time = search_metrics.get_all_session_metrics(current_user.id)
 
-    # Get total metrics
-    user_metrics = search_metrics.get_user_metrics(current_user.id)
-    total_searches = user_metrics.get("search_count", 0)
-    total_interactions = user_metrics.get("interaction_count", 0)
+        # Get user metrics summary
+        user_metrics = search_metrics.get_user_metrics(current_user.id)
 
-    # Check if there's an active session
-    current_session = search_metrics.get_session_metrics(current_user.id)
+        # Fetch the most played song directly from the database to ensure freshness
+        most_played_song = search_metrics.get_most_played_song(current_user.id)
+        app.logger.info(f"Most played song data: {most_played_song}")
 
-    return jsonify(
-        {
-            "latest_metrics": latest_metrics,
-            "metrics_over_time": metrics_over_time,
-            "total_searches": total_searches,
-            "total_interactions": total_interactions,
-            "current_session": current_session,
-        }
-    )
+        # Get most liked album and artist
+        most_liked_album = search_metrics.get_most_liked_album(current_user.id)
+        most_liked_artist = search_metrics.get_most_liked_artist(current_user.id)
+
+        # Force database refresh to ensure latest data
+        db.session.commit()
+
+        return jsonify(
+            {
+                "metrics_over_time": metrics_over_time,
+                "total_searches": user_metrics.get("search_count", 0),
+                "total_interactions": user_metrics.get("interaction_count", 0),
+                "most_played_song": most_played_song,
+                "most_liked_album": most_liked_album,
+                "most_liked_artist": most_liked_artist,
+            }
+        )
+    except Exception as e:
+        app.logger.error(f"Error fetching metrics: {str(e)}")
+        return jsonify({"error": "Failed to fetch metrics", "message": str(e)}), 500
 
 
 @app.route("/update-precision", methods=["POST"])
@@ -599,6 +680,21 @@ def update_precision():
     except Exception as e:
         logger.error(f"Error updating precision: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/reset-app", methods=["POST"])
+@login_required
+def reset_app():
+    try:
+        # Reset all metrics for the current user
+        search_metrics._reset_user_metrics(current_user.id)
+
+        # Return success response
+        return jsonify({"success": True})
+    except Exception as e:
+        # Log the error and return failure response
+        app.logger.error(f"Error in reset_app: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
 
 
 if __name__ == "__main__":

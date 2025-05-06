@@ -1,14 +1,9 @@
-// Tracking functionality for user interactions
 class TrackingManager {
-    // Class variable to store current session ID
     static currentSessionId = null;
 
     static setCurrentSession(sessionId) {
         TrackingManager.currentSessionId = sessionId;
         console.log(`Set current session ID: ${sessionId}`);
-
-        // Store in sessionStorage for persistence
-        sessionStorage.setItem('lastSearchSessionId', sessionId);
     }
 
     static async trackClick(itemText, interactionType = "click") {
@@ -34,12 +29,6 @@ class TrackingManager {
             const data = await response.json();
             console.log(`Tracked ${interactionType} for "${itemText}" in session ${TrackingManager.currentSessionId}`);
 
-            // Store the latest metrics in localStorage
-            if (data.latest_metrics) {
-                localStorage.setItem('latest_metrics', JSON.stringify(data.latest_metrics));
-                console.log("Updated latest metrics:", data.latest_metrics);
-            }
-
             // Notify any dashboard that might be open in another tab
             TrackingManager.notifyDashboardUpdate();
         } catch (error) {
@@ -54,25 +43,65 @@ class TrackingManager {
                 return;
             }
 
+            // Get the track details to provide a more complete item_text
+            let trackInfo = await TrackingManager.getTrackInfo(trackId);
+            let itemText = "";
+
+            if (trackInfo) {
+                // Format as "song by artist from album" which matches the expected format
+                // for tracking metrics
+                itemText = `${trackInfo.title} by ${trackInfo.artist}${trackInfo.album ? ` from ${trackInfo.album}` : ''}`;
+                console.log(`Tracking play for "${itemText}" with duration ${duration} seconds`);
+            } else {
+                console.log(`Tracking play for track ${trackId} with duration ${duration} seconds`);
+            }
+
+            const response = await fetch(`/track-play/${trackId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    duration: duration,
+                    item_text: itemText
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                console.log(`Successfully tracked play for "${itemText || trackId}" with ${duration} seconds`);
+                TrackingManager.notifyDashboardUpdate();
+            } else {
+                console.error('Failed to track play:', data.error);
+            }
+        } catch (error) {
+            console.error('Error tracking play:', error);
+        }
+    }
+
+    static async getTrackInfo(trackId) {
+        try {
+            const response = await fetch(`/get-track-info/${trackId}`);
+            if (response.ok) {
+                const data = await response.json();
+                return data.track;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error fetching track info:', error);
+            return null;
+        }
+    }
+
+    static async trackLike(itemText) {
+        try {
             if (!TrackingManager.currentSessionId) {
                 console.error('No session ID available for tracking');
                 return;
             }
 
-            // First get the track details to get the item text
-            const trackResponse = await fetch(`/get-spotify-track/${trackId}`);
-            const trackData = await trackResponse.json();
-
-            if (!trackData.track) {
-                console.error('Could not get track details');
-                return;
-            }
-
-            const track = trackData.track;
-            const itemText = `${track.name} by ${track.artist}`;
-
-            // Track the play as an interaction
-            await fetch('/track-click', {
+            const response = await fetch('/track-click', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -80,25 +109,23 @@ class TrackingManager {
                 body: JSON.stringify({
                     item_text: itemText,
                     item_type: "song",
-                    interaction_type: "play",
+                    interaction_type: "like",
                     session_id: TrackingManager.currentSessionId
                 })
             });
 
-            console.log(`Tracked play for "${itemText}" in session ${TrackingManager.currentSessionId}`);
+            const data = await response.json();
+            console.log(`Tracked like for "${itemText}" in session ${TrackingManager.currentSessionId}`);
 
-            // Notify any dashboard that might be open in another tab
             TrackingManager.notifyDashboardUpdate();
         } catch (error) {
-            console.error('Error tracking play:', error);
+            console.error('Error tracking like:', error);
         }
     }
 
-    // Method to notify dashboard of updates (using localStorage for cross-tab communication)
+    // Method to notify dashboard of updates
     static notifyDashboardUpdate() {
-        // Update localStorage with a timestamp to trigger the storage event
-        localStorage.setItem('dashboard_update', Date.now().toString());
-        console.log("Dashboard update notification sent");
+        window.dispatchEvent(new CustomEvent('metrics_updated'));
     }
 }
 
