@@ -191,7 +191,7 @@
                                 alert('Application has been reset successfully!');
 
                                 // Force reload from server (bypass cache)
-                                window.location.href = '/dashboard?t=' + new Date().getTime();
+                                window.location.href = '/?t=' + new Date().getTime();
                             } else {
                                 alert('Error: ' + data.error);
                                 resetAppBtn.innerHTML = '<i class="fas fa-redo-alt"></i> Reset App';
