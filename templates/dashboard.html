@@ -224,25 +224,24 @@
     };
 
     const mockArtistTrendsData = {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+        labels: ['Drake', 'The Weeknd', 'Dua Lipa', 'Taylor Swift', 'Bad Bunny', 'Ed Sheeran', 'Billie Eilish', 'Post Malone', 'Ariana Grande', 'Justin Bieber'],
         datasets: [{
-            label: 'The Weeknd',
-            data: [65, 75, 85, 90, 95, 100, 95, 90, 85, 80, 85, 90],
-            borderColor: '#1DB954',  // Spotify green
-            backgroundColor: 'rgba(29, 185, 84, 0.1)',
-            tension: 0.4
-        }, {
-            label: 'Dua Lipa',
-            data: [45, 55, 65, 70, 80, 85, 80, 75, 70, 75, 80, 85],
-            borderColor: '#00ff00',  // Neon green
-            backgroundColor: 'rgba(0, 255, 0, 0.1)',
-            tension: 0.4
-        }, {
-            label: 'Drake',
-            data: [80, 85, 80, 75, 85, 90, 85, 80, 85, 90, 95, 100],
-            borderColor: '#b3b3b3',  // Spotify gray
-            backgroundColor: 'rgba(179, 179, 179, 0.1)',
-            tension: 0.4
+            label: 'Play Count',
+            data: [100, 90, 85, 95, 88, 82, 78, 75, 72, 70],
+            backgroundColor: [
+                '#1DB954',  // Spotify green
+                '#00ff00',  // Neon green
+                '#b3b3b3',  // Spotify gray
+                '#1ed760',  // Spotify light green
+                '#191414',  // Spotify black
+                '#535353',  // Spotify dark gray
+                '#ffffff',  // White
+                '#2ecc71',  // Emerald
+                '#27ae60',  // Nephritis
+                '#16a085'   // Green sea
+            ],
+            borderColor: '#191414',
+            borderWidth: 1
         }]
     };
 
@@ -267,13 +266,13 @@
 
         // Initialize artist trends chart
         new Chart(document.getElementById('artistTrendsChart'), {
-            type: 'line',
+            type: 'bar',
             data: mockArtistTrendsData,
             options: {
                 responsive: true,
                 plugins: {
                     legend: {
-                        position: 'top',
+                        display: false
                     }
                 },
                 scales: {
@@ -282,6 +281,12 @@
                         title: {
                             display: true,
                             text: 'Play Count'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Artists'
                         }
                     }
                 }
