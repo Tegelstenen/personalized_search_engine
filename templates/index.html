@@ -5,20 +5,14 @@
 {% block content %}
 <div class="main-content">
     <h1>Personalized Spotify Music Search</h1>
-    <p>Search for a song, album, or artist</p>
+    <p>Search for songs</p>
 
     <button class="show-top-items-btn" id="show-top-items">
         <i class="fas fa-chart-line"></i> See My Top Tracks & Artists
     </button>
 
     <div class="search-container">
-        <div class="search-filters">
-            <button class="filter-btn active" data-filter="all">All</button>
-            <button class="filter-btn" data-filter="songs">Songs</button>
-            <button class="filter-btn" data-filter="albums">Albums</button>
-            <button class="filter-btn" data-filter="artists">Artists</button>
-        </div>
-        <input type="text" id="search-input" placeholder="Search...">
+        <input type="text" id="search-input" placeholder="Search for songs...">
         <button id="search-button">Search</button>
     </div>
 

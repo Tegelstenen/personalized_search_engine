@@ -1,5 +1,3 @@
-# type: ignore
-
 import logging
 import os
 from datetime import datetime, timezone
@@ -20,13 +18,10 @@ from spotipy.oauth2 import SpotifyOAuth
 
 from src.elastic_utils import (
     clean_and_deduplicate_results,
-    create_album_query,
-    create_artist_query,
     create_song_query,
-    process_album_results,
-    process_artist_results,
     process_song_results,
 )
+from src.metrics import SearchMetrics
 from src.models import User, db
 from src.spotipy_utils import (
     format_album_data,
@@ -36,9 +31,7 @@ from src.spotipy_utils import (
 )
 from src.user_profile import UserProfileManager
 from src.utils import get_track_lyrics
-from src.metrics import SearchMetrics  # Import the SearchMetrics class
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -46,7 +39,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load environment variables
+
 load_dotenv()
 
 # embedding model
@@ -67,25 +60,24 @@ assert SPOTIFY_CLIENT_SECRET is not None
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
-# Connect to Elasticsearch
-# For local development
+
 client = Elasticsearch(
     "http://localhost:9200",
     basic_auth=("elastic", ES_LOCAL_PASSWORD),
 )
 
-# Initialize database
+
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
 db.init_app(app)
 
-# Initialize login manager
+
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = "login"  # type: ignore
+login_manager.login_view = "login"
 
-# Initialize user profile manager
+
 user_profile_manager = UserProfileManager()
-# Initialize search metrics
+
 search_metrics = SearchMetrics()
 
 
@@ -94,7 +86,6 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
-# Route for the home page with search form
 @app.route("/")
 @login_required
 def home():
@@ -104,77 +95,55 @@ def home():
 @app.route("/search")
 @login_required
 def search():
-    """Handle search requests across artists, albums, and songs."""
+    """Handle search requests for songs."""
     query = request.args.get("q", "")
-    filter_type = request.args.get("filter", "all")
 
     if not query:
         return jsonify({"hits": []})
 
-    # Track the search interaction
-    item_type = "all"
-    if filter_type in ["artists", "songs", "albums"]:
-        item_type = filter_type[:-1]
+    session_id = search_metrics.start_search_session(current_user.id, query)
 
     user_profile_manager.track_interaction(
         user_id=current_user.id,
         interaction_type="search",
         item_text=query,
-        item_type=item_type,
+        item_type="song",
     )
 
-    hits = []
+    personalized_query_vector = user_profile_manager.get_personalized_search_query(
+        current_user.id, query
+    )
 
-    # Search based on filter type
-    if filter_type in ["all", "artists"]:
-        # Search and process artists
-        artist_results = client.search(index="artists", body=create_artist_query(query))
-        for hit in artist_results["hits"]["hits"]:
-            hits.extend(process_artist_results(hit))
+    song_results = client.search(
+        index="songs", body=create_song_query(query, personalized_query_vector)
+    )
+    hits = [process_song_results(hit) for hit in song_results["hits"]["hits"]]
 
-    if filter_type in ["all", "albums"]:
-        # Search and process albums
-        album_results = client.search(index="albums", body=create_album_query(query))
-        hits.extend(process_album_results(hit) for hit in album_results["hits"]["hits"])
-
-    if filter_type in ["all", "songs"]:
-        # Get personalized query embedding
-        personalized_query_vector = user_profile_manager.get_personalized_search_query(
-            current_user.id, query
-        )
-
-        # Search and process songs
-        song_results = client.search(
-            index="songs", body=create_song_query(query, personalized_query_vector)
-        )
-        hits.extend(process_song_results(hit) for hit in song_results["hits"]["hits"])
-
-    # Clean and deduplicate results
     cleaned_hits = clean_and_deduplicate_results(hits)
 
-    return jsonify({"hits": cleaned_hits})
+    return jsonify({"hits": cleaned_hits, "session_id": session_id})
 
 
 @app.route("/track-click", methods=["POST"])
 @login_required
 def track_click():
-    """Track when a user clicks on an item."""
     try:
-        # Get item_text if provided in request body
-        data = request.get_json() or {}
+        data = request.get_json()
         item_text = data.get("item_text")
-        item_type = data.get("item_type", "")
+        item_type = data.get("item_type", "song")
+        interaction_type = data.get("interaction_type", "click")
 
         if not item_text:
-            raise ValueError("item_text is required for embedding")
+            return jsonify({"error": "Missing required fields"}), 400
 
-        user_profile_manager.track_interaction(
+        updated_metrics = search_metrics.track_interaction(
             user_id=current_user.id,
-            interaction_type="click",
+            interaction_type=interaction_type,
             item_text=item_text,
             item_type=item_type,
         )
-        return jsonify({"success": True})
+
+        return jsonify({"status": "success", "latest_metrics": updated_metrics or {}})
     except Exception as e:
         logger.error(f"Error tracking click: {str(e)}")
         return jsonify({"error": str(e)}), 500
@@ -195,8 +164,8 @@ def track_play(track_id):
         album_name = track["album"]["name"]
         lyrics = get_track_lyrics(artist_name, track_name)
         if lyrics:
-            # Format: track info + first few lines of lyrics
-            lyrics_preview = lyrics.split("\n")[:5]  # First 5 lines only
+
+            lyrics_preview = lyrics.split("\n")[:5]
             lyrics_text = " | ".join(
                 line.strip() for line in lyrics_preview if line.strip()
             )
@@ -204,7 +173,6 @@ def track_play(track_id):
                 f"{track_name} by {artist_name} from {album_name} | {lyrics_text}"
             )
 
-            # Truncate if it's too long
             if len(item_text) > 450:  # Keep within reasonable length
                 item_text = item_text[:450] + "..."
         else:
@@ -217,13 +185,17 @@ def track_play(track_id):
             item_text=item_text,
             item_type="song",
         )
-        return jsonify({"success": True})
+
+        updated_metrics = search_metrics.track_interaction(
+            user_id=current_user.id, interaction_type="play", item_text=item_text
+        )
+
+        return jsonify({"success": True, "latest_metrics": updated_metrics or {}})
     except Exception as e:
         logger.error(f"Error tracking play: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
-# Route for login
 @app.route("/login")
 def login():
     return render_template("login.html")
@@ -244,13 +216,10 @@ def spotify_callback():
     if not code:
         return redirect(url_for("login"))
 
-    # Exchange code for token information
     token_info = sp_oauth.get_access_token(code)
 
-    # Get user's Spotify profile
     sp = spotipy.Spotify(auth=token_info["access_token"])
     spotify_profile = sp.current_user()
-    # Find or create user
     user = User.query.filter_by(spotify_id=spotify_profile["id"]).first()
     if not user:
         user = User(
@@ -556,58 +525,84 @@ def search_spotify_album(query):
 @login_required
 def dashboard():
     """Display personalization metrics dashboard."""
-    # Get metrics for current user
     user_metrics = search_metrics.get_user_metrics(current_user.id)
-    
-    # Get average metrics across all users
-    avg_metrics = search_metrics.get_avg_user_metrics()
-    
-    # Organize metrics for template
-    metrics_by_period = {
-        "1d": {},
-        "7d": {},
-        "30d": {}
-    }
-    
-    # Organize user metrics by time period
-    for key, value in user_metrics.items():
-        for period in metrics_by_period.keys():
-            if key.endswith(period):
-                metric_name = key.replace(f"_{period}", "")
-                metrics_by_period[period][metric_name] = value
-    
-    # Organize average metrics by time period
-    avg_metrics_by_period = {
-        "1d": {},
-        "7d": {},
-        "30d": {}
-    }
-    
-    for key, value in avg_metrics.items():
-        for period in avg_metrics_by_period.keys():
-            if key.endswith(period):
-                metric_name = key.replace(f"_{period}", "")
-                avg_metrics_by_period[period][metric_name] = value
-    
-    # Calculate total searches, clicks, and plays
-    total_searches = user_metrics.get("search_count_30d", 0)
-    total_clicks = user_metrics.get("click_count_30d", 0)
-    total_plays = user_metrics.get("play_count_30d", 0)
-    
+    metrics_over_time = search_metrics.get_all_session_metrics(current_user.id)
+
+    total_searches = user_metrics.get("search_count", 0)
+    total_interactions = user_metrics.get("interaction_count", 0)
+
+    if request.args.get("json") == "true":
+        return jsonify(
+            {
+                "total_searches": total_searches,
+                "total_interactions": total_interactions,
+                "metrics_over_time": metrics_over_time,
+            }
+        )
+
     return render_template(
         "dashboard.html",
-        metrics_by_period=metrics_by_period,
-        avg_metrics_by_period=avg_metrics_by_period,
         total_searches=total_searches,
-        total_clicks=total_clicks,
-        total_plays=total_plays
+        total_interactions=total_interactions,
+        metrics_over_time=metrics_over_time,
+        datetime=datetime,
     )
 
 
+@app.route("/latest-metrics")
+@login_required
+def get_latest_metrics():
+    """Get the latest metrics for the current user's most recent search."""
+    latest_metrics = search_metrics.get_latest_search_metrics(current_user.id)
+
+    # Get all metrics over time
+    metrics_over_time = search_metrics.get_all_session_metrics(current_user.id)
+
+    # Get total metrics
+    user_metrics = search_metrics.get_user_metrics(current_user.id)
+    total_searches = user_metrics.get("search_count", 0)
+    total_interactions = user_metrics.get("interaction_count", 0)
+
+    # Check if there's an active session
+    current_session = search_metrics.get_session_metrics(current_user.id)
+
+    return jsonify(
+        {
+            "latest_metrics": latest_metrics,
+            "metrics_over_time": metrics_over_time,
+            "total_searches": total_searches,
+            "total_interactions": total_interactions,
+            "current_session": current_session,
+        }
+    )
+
+
+@app.route("/update-precision", methods=["POST"])
+@login_required
+def update_precision():
+    try:
+        data = request.get_json()
+        precision5 = data.get("precision5", 0.0)
+        precision10 = data.get("precision10", 0.0)
+        session_id = data.get("session_id")
+
+        if not session_id:
+            return jsonify({"error": "Missing session ID"}), 400
+
+        search_metrics.update_session_precision(
+            session_id=session_id, precision5=precision5, precision10=precision10
+        )
+
+        return jsonify(
+            {"status": "success", "precision5": precision5, "precision10": precision10}
+        )
+    except Exception as e:
+        logger.error(f"Error updating precision: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
-    # Create database tables
     with app.app_context():
         db.create_all()
 
-    # Run the Flask app
     app.run(debug=True)

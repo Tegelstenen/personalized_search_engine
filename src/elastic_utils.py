@@ -10,30 +10,26 @@ def create_artist_query(query):
                 "should": [
                     # Exact matches for artist name (highest priority)
                     {"term": {"name.keyword": {"value": query, "boost": 10}}},
-
                     # Phrase matches (high priority)
                     {"match_phrase": {"name": {"query": query, "boost": 5}}},
-
                     # Text field matches
-                    {"match": {"name": {"query": query, "boost": 3, "fuzziness": "AUTO"}}},
+                    {
+                        "match": {
+                            "name": {"query": query, "boost": 3, "fuzziness": "AUTO"}
+                        }
+                    },
                     {"match": {"nameVariations": {"query": query, "boost": 2}}},
-
                     # Lower priority matches
                     {"match": {"abstract": {"query": query, "boost": 1}}},
                     {"match": {"genres": {"query": query, "boost": 1}}},
                 ],
-                "minimum_should_match": 1
+                "minimum_should_match": 1,
             }
         },
         "highlight": {
-            "fields": {
-                "name": {},
-                "nameVariations": {},
-                "abstract": {},
-                "genres": {}
-            }
+            "fields": {"name": {}, "nameVariations": {}, "abstract": {}, "genres": {}}
         },
-        "size": 30
+        "size": 30,
     }
 
 
@@ -46,29 +42,29 @@ def create_album_query(query):
                     # Title matches (highest priority)
                     {"term": {"title.keyword": {"value": query, "boost": 10}}},
                     {"match_phrase": {"title": {"query": query, "boost": 8}}},
-                    {"match": {"title": {"query": query, "boost": 5, "fuzziness": "AUTO"}}},
-
+                    {
+                        "match": {
+                            "title": {"query": query, "boost": 5, "fuzziness": "AUTO"}
+                        }
+                    },
                     # Name matches (high priority)
                     {"term": {"name.keyword": {"value": query, "boost": 8}}},
                     {"match_phrase": {"name": {"query": query, "boost": 6}}},
-                    {"match": {"name": {"query": query, "boost": 4, "fuzziness": "AUTO"}}},
-
+                    {
+                        "match": {
+                            "name": {"query": query, "boost": 4, "fuzziness": "AUTO"}
+                        }
+                    },
                     # Artist name matches (medium priority)
                     {"term": {"artist_name.keyword": {"value": query, "boost": 3}}},
                     {"match_phrase": {"artist_name": {"query": query, "boost": 2}}},
                     {"match": {"artist_name": {"query": query, "boost": 1}}},
                 ],
-                "minimum_should_match": 1
+                "minimum_should_match": 1,
             }
         },
-        "highlight": {
-            "fields": {
-                "title": {},
-                "name": {},
-                "artist_name": {}
-            }
-        },
-        "size": 30
+        "highlight": {"fields": {"title": {}, "name": {}, "artist_name": {}}},
+        "size": 30,
     }
 
 
@@ -82,7 +78,7 @@ def create_song_query(query, query_vector, return_size=100):
                 "query_vector": query_vector,
                 "k": return_size,
                 "num_candidates": 5000,
-                "boost": 0.8
+                "boost": 0.8,
             },
             # comment this if lyrics embeddings are not available yet
             {
@@ -90,11 +86,10 @@ def create_song_query(query, query_vector, return_size=100):
                 "query_vector": query_vector,
                 "k": return_size,
                 "num_candidates": 1000,
-                "boost": 0.2
-            }
+                "boost": 0.2,
+            },
         ],
         # full-text search
-
         # "query": {
         #     "bool": {
         #         "should": [
@@ -114,21 +109,12 @@ def create_song_query(query, query_vector, return_size=100):
         #         "minimum_should_match": 1
         #     }
         # },
-
         "rank": {
             # combine full-text & vector search
-            "rrf": {
-                "rank_window_size": return_size
-            }
+            "rrf": {"rank_window_size": return_size}
         },
-        "highlight": {
-            "fields": {
-                "title": {},
-                "artist": {},
-                "albumTitle": {}
-            }
-        },
-        "size": return_size
+        "highlight": {"fields": {"title": {}, "artist": {}, "albumTitle": {}}},
+        "size": return_size,
     }
 
 
@@ -152,8 +138,11 @@ def process_artist_results(hit):
         elif "dbp_genre" in highlight:
             genre_info = highlight["dbp_genre"][0]
         elif "genres" in source:
-            genre_info = ", ".join(source["genres"][:3]) if isinstance(source.get("genres"), list) else source.get(
-                "genres", "")
+            genre_info = (
+                ", ".join(source["genres"][:3])
+                if isinstance(source.get("genres"), list)
+                else source.get("genres", "")
+            )
         elif "dbp_genre" in source:
             genre_info = source.get("dbp_genre", "")
 
@@ -176,11 +165,11 @@ def process_artist_results(hit):
             # Try to get image from picture field in descending size preference
             picture = source["picture"]
             image_url = (
-                    picture.get("xl") or
-                    picture.get("big") or
-                    picture.get("standard") or
-                    picture.get("medium") or
-                    picture.get("small")
+                picture.get("xl")
+                or picture.get("big")
+                or picture.get("standard")
+                or picture.get("medium")
+                or picture.get("small")
             )
 
         # Create a rich snippet with artist details
@@ -210,9 +199,15 @@ def process_artist_results(hit):
         # Add abstract information if available
         if abstract:
             if rich_snippet:
-                rich_snippet += f" • {abstract[:150]}..." if len(abstract) > 150 else f" • {abstract}"
+                rich_snippet += (
+                    f" • {abstract[:150]}..."
+                    if len(abstract) > 150
+                    else f" • {abstract}"
+                )
             else:
-                rich_snippet = abstract[:200] + "..." if len(abstract) > 200 else abstract
+                rich_snippet = (
+                    abstract[:200] + "..." if len(abstract) > 200 else abstract
+                )
 
         results.append(
             {
@@ -245,8 +240,11 @@ def process_artist_results(hit):
         # Add parent artist information
         if source.get("name"):
             if member_snippet:
-                member_snippet = f"Member of {source['name']} • {member_snippet[:150]}..." if len(
-                    member_snippet) > 150 else f"Member of {source['name']} • {member_snippet}"
+                member_snippet = (
+                    f"Member of {source['name']} • {member_snippet[:150]}..."
+                    if len(member_snippet) > 150
+                    else f"Member of {source['name']} • {member_snippet}"
+                )
             else:
                 member_snippet = f"Member of {source['name']}"
 
@@ -298,11 +296,11 @@ def process_album_results(hit):
         # Try to get image from cover field in descending size preference
         cover = source["cover"]
         image_url = (
-                cover.get("xl") or
-                cover.get("big") or
-                cover.get("standard") or
-                cover.get("medium") or
-                cover.get("small")
+            cover.get("xl")
+            or cover.get("big")
+            or cover.get("standard")
+            or cover.get("medium")
+            or cover.get("small")
         )
 
     # Create a rich snippet with album details
@@ -395,9 +393,17 @@ def process_song_results(hit):
 
     if content_snippet:
         if rich_snippet:
-            rich_snippet += f" • {content_snippet[:150]}..." if len(content_snippet) > 150 else f" • {content_snippet}"
+            rich_snippet += (
+                f" • {content_snippet[:150]}..."
+                if len(content_snippet) > 150
+                else f" • {content_snippet}"
+            )
         else:
-            rich_snippet = content_snippet[:200] + "..." if len(content_snippet) > 200 else content_snippet
+            rich_snippet = (
+                content_snippet[:200] + "..."
+                if len(content_snippet) > 200
+                else content_snippet
+            )
 
     return {
         "id": hit["_id"],

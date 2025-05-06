@@ -7,9 +7,8 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from sqlalchemy import desc
 
+from src.models import User, UserInteraction, db
 from src.utils import remove_html_tags
-
-from .models import User, UserInteraction, db
 
 # Constants
 QUERY_WEIGHT = 0.67

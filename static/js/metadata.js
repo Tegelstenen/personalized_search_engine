@@ -34,94 +34,6 @@ class MetadataDisplay {
         }, 300);
     }
 
-    async displayArtistMetadata(result) {
-        const artistData = result.source.member || result.source;
-        const artistUrl = this.getArtistUrl(artistData);
-        const instruments = this.formatInstruments(artistData.instruments);
-        const artistImage = result.image || '/static/default-artist.png';
-
-        const content = `
-            <div class="metadata-header">
-                <img src="${artistImage}" alt="${result.title}" class="metadata-image artist-image">
-                <div class="metadata-title">
-                    <h3>${result.source.member ? 'Artist Information' : 'Band Information'}</h3>
-                    <h2>${result.title}</h2>
-                </div>
-            </div>
-            <div class="metadata-details">
-                ${artistData.realName && artistData.realName !== artistData.name ?
-                    `<p><strong>Real Name:</strong> ${artistData.realName}</p>` : ''}
-                ${this.getBiography(artistData)}
-                ${artistUrl ? `<p><strong>More Info:</strong> <a href="${artistUrl}" target="_blank">${artistUrl}</a></p>` : ''}
-                ${instruments ? `<p><strong>Instruments:</strong> ${instruments}</p>` : ''}
-                ${artistData.birthDate ? `<p><strong>Birth Date:</strong> ${artistData.birthDate}</p>` : ''}
-                ${artistData.subject ? `<p><strong>Categories:</strong> ${artistData.subject.join(', ')}</p>` : ''}
-                ${this.getNameVariations(artistData)}
-            </div>
-            <div id="spotify-artist" class="spotify-match">
-                <h4>On Spotify</h4>
-                <div class="match-content">Loading...</div>
-            </div>
-            <div id="artist-songs" class="artist-songs">
-                <h4>Songs found on Spotify</h4>
-                <div class="songs-list">Loading...</div>
-            </div>`;
-
-        this.contentDiv.innerHTML = content;
-        this.showModal();
-
-        // Create a descriptive text for tracking
-        const artistDescription = `${result.title}` +
-                                 `${artistData.realName && artistData.realName !== artistData.name ? ` (${artistData.realName})` : ''}` +
-                                 `${instruments ? `, ${instruments}` : ''}` +
-                                 `${artistData.subject ? `, ${artistData.subject.join(', ')}` : ''}`;
-        await window.TrackingManager.trackClick(artistDescription, "artist");
-
-        // Fetch additional data
-        await Promise.all([
-            this.fetchSpotifyArtist(result.title),
-            this.fetchArtistSongs(result.title)
-        ]);
-    }
-
-    async displayAlbumMetadata(result) {
-        const albumImage = result.image || '/static/default-album.png';
-
-        const content = `
-            <div class="metadata-header">
-                <img src="${albumImage}" alt="${result.title}" class="metadata-image album-image">
-                <div class="metadata-title">
-                    <h3>Album Information</h3>
-                    <h2>${result.title}</h2>
-                    <p class="metadata-subtitle">by ${result.source.artist_name || result.source.name || "Unknown Artist"}</p>
-                </div>
-            </div>
-            <div class="metadata-details">
-                ${result.source.genre ? `<p><strong>Genre:</strong> ${result.source.genre}</p>` : ''}
-                ${result.source.dateRelease ? `<p><strong>Release Date:</strong> ${result.source.dateRelease}</p>` : ''}
-                ${result.source.country ? `<p><strong>Country:</strong> ${result.source.country}</p>` : ''}
-            </div>
-            <div id="spotify-album" class="spotify-match">
-                <h4>On Spotify</h4>
-                <div class="match-content">Loading...</div>
-            </div>
-        `;
-
-        this.contentDiv.innerHTML = content;
-        this.showModal();
-
-        // Create a descriptive text for tracking
-        const albumDescription = `${result.title} by ${result.source.artist_name || result.source.name || "Unknown Artist"}` +
-                                `${result.source.genre ? `, ${result.source.genre}` : ''}` +
-                                `${result.source.dateRelease ? `, ${result.source.dateRelease}` : ''}` +
-                                `${result.source.country ? `, ${result.source.country}` : ''}`;
-        await window.TrackingManager.trackClick(albumDescription, "album");
-
-        // Fetch Spotify album data
-        const searchQuery = `${result.title} ${result.source.artist_name || result.source.name || ''}`.trim();
-        await this.fetchSpotifyAlbum(searchQuery);
-    }
-
     async displaySongMetadata(result) {
         const content = `
             <div class="metadata-header song-metadata-header">
@@ -173,106 +85,6 @@ class MetadataDisplay {
         }
     }
 
-    // Helper methods for formatting data
-    getArtistUrl(artistData) {
-        if (artistData.urlWikipedia) return artistData.urlWikipedia;
-        if (artistData.urlWikidata) return artistData.urlWikidata;
-        if (artistData.urls && artistData.urls.length > 0) return artistData.urls[0];
-        return '';
-    }
-
-    formatInstruments(instruments) {
-        return instruments ? instruments.map(instrument =>
-            instrument.charAt(0).toUpperCase() + instrument.slice(1)).join(', ') : '';
-    }
-
-    getBiography(artistData) {
-        if (artistData.dbp_abstract) return `<p><strong>Biography:</strong> ${artistData.dbp_abstract}</p>`;
-        if (artistData.abstract) return `<p><strong>Biography:</strong> ${artistData.abstract}</p>`;
-        return '';
-    }
-
-    getNameVariations(artistData) {
-        return artistData.nameVariations && artistData.nameVariations.length > 0 ?
-            `<p><strong>Also Known As:</strong> ${artistData.nameVariations.join(', ')}</p>` : '';
-    }
-
-    // API calls to fetch additional data
-    async fetchSpotifyArtist(artistName) {
-        try {
-            const response = await fetch(`/search-spotify-artist/${encodeURIComponent(artistName)}`);
-            const data = await response.json();
-            const container = document.querySelector('.match-content');
-
-            if (!container) return; // Modal might be closed
-
-            if (data.error) {
-                container.innerHTML = `<p class="error">${data.error}</p>`;
-                return;
-            }
-
-            const artist = data.artist;
-            container.innerHTML = this.createSpotifyArtistCard(artist);
-        } catch (error) {
-            console.error('Error fetching Spotify artist:', error);
-            const container = document.querySelector('.match-content');
-            if (container) {
-                container.innerHTML = '<p class="error">Failed to load Spotify artist</p>';
-            }
-        }
-    }
-
-    async fetchArtistSongs(artistName) {
-        try {
-            const response = await fetch(`/artist-songs/${encodeURIComponent(artistName)}`);
-            const data = await response.json();
-
-            if (!document.getElementById('artist-songs')) return; // Modal might be closed
-
-            const songsList = document.querySelector('.songs-list');
-            if (data.error) {
-                songsList.innerHTML = `<p class="error">${data.error}</p>`;
-                return;
-            }
-            if (!data.tracks || data.tracks.length === 0) {
-                songsList.innerHTML = '<p>No songs found</p>';
-                return;
-            }
-
-            this.displaySpotifyMatches(data.tracks, songsList);
-        } catch (error) {
-            console.error('Error fetching songs:', error);
-            const songsList = document.querySelector('.songs-list');
-            if (songsList) {
-                songsList.innerHTML = '<p class="error">Failed to load songs</p>';
-            }
-        }
-    }
-
-    async fetchSpotifyAlbum(searchQuery) {
-        try {
-            const response = await fetch(`/search-spotify-album/${encodeURIComponent(searchQuery)}`);
-            const data = await response.json();
-            const container = document.querySelector('.match-content');
-
-            if (!container) return; // Modal might be closed
-
-            if (data.error) {
-                container.innerHTML = `<p class="error">${data.error}</p>`;
-                return;
-            }
-
-            const album = data.album;
-            container.innerHTML = this.createSpotifyAlbumCard(album);
-        } catch (error) {
-            console.error('Error fetching Spotify album:', error);
-            const container = document.querySelector('.match-content');
-            if (container) {
-                container.innerHTML = '<p class="error">Failed to load Spotify album</p>';
-            }
-        }
-    }
-
     async fetchSpotifyTrack(trackId) {
         try {
             const response = await fetch(`/get-spotify-track/${trackId}`);
@@ -305,43 +117,6 @@ class MetadataDisplay {
             console.error('Error searching Spotify tracks:', error);
             document.getElementById('spotify-matches').innerHTML = '<p class="error">Failed to search Spotify tracks</p>';
         }
-    }
-
-    // UI Components
-    createSpotifyArtistCard(artist) {
-        return `
-            <div class="songs-grid">
-                <div class="song-item">
-                    <img src="${artist.image || '/static/default-artist.png'}" alt="${artist.name}" class="song-image">
-                    <div class="song-info">
-                        <h5>${artist.name}</h5>
-                        <p>${artist.genres.slice(0, 3).join(', ')}</p>
-                        <p>${artist.followers.toLocaleString()} followers • ${artist.popularity}% popularity</p>
-                        <button class="play-song-btn" onclick="window.open('${artist.external_url}', '_blank')">
-                            <i class="fab fa-spotify"></i> Open in Spotify
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    createSpotifyAlbumCard(album) {
-        return `
-            <div class="songs-grid">
-                <div class="song-item">
-                    <img src="${album.image || '/static/default-album.png'}" alt="${album.name}" class="song-image">
-                    <div class="song-info">
-                        <h5>${album.name}</h5>
-                        <p>By ${album.artist}</p>
-                        <p>${album.total_tracks} tracks • Released: ${album.release_date}</p>
-                        <button class="play-song-btn" onclick="window.open('${album.external_url}', '_blank')">
-                            <i class="fab fa-spotify"></i> Open in Spotify
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
     }
 
     displaySpotifyMatches(tracks, targetContainer = null) {
@@ -398,4 +173,16 @@ class MetadataDisplay {
 // Initialize metadata handler when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.metadataDisplay = new MetadataDisplay();
+
+    // Add event listeners for like buttons
+    document.addEventListener('click', async (event) => {
+        if (event.target.closest('.like-button')) {
+            const button = event.target.closest('.like-button');
+            const itemText = button.dataset.itemText;
+
+            await window.TrackingManager.trackLike(itemText);
+            button.innerHTML = '<i class="fas fa-heart"></i>';
+            button.classList.add('liked');
+        }
+    });
 });

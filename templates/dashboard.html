@@ -13,77 +13,69 @@
         padding: 16px;
         margin-bottom: 20px;
     }
-    
+
     .metric-value {
         font-size: 28px;
         font-weight: bold;
         margin: 12px 0;
     }
-    
+
     .metric-label {
         color: #666;
         font-size: 14px;
         text-transform: uppercase;
     }
-    
-    .metric-trend {
-        font-size: 14px;
-        margin-top: 8px;
-    }
-    
-    .metric-trend.positive {
-        color: #4caf50;
-    }
-    
-    .metric-trend.negative {
-        color: #f44336;
-    }
-    
+
     .chart-container {
         height: 300px;
         margin-bottom: 30px;
     }
-    
-    .tab-content {
-        padding-top: 20px;
-    }
-    
-    .time-period-tabs {
-        margin-bottom: 20px;
-    }
-    
-    .time-period-tabs .nav-link {
-        color: #333;
-    }
-    
-    .time-period-tabs .nav-link.active {
-        font-weight: bold;
-        color: #1db954;
-        background-color: transparent;
-        border-bottom: 2px solid #1db954;
-        border-color: transparent transparent #1db954 transparent;
-    }
-    
+
     .metrics-definition {
         background-color: #f9f9f9;
         border-radius: 8px;
         padding: 15px;
         margin-top: 30px;
     }
-    
+
     .metrics-definition h3 {
         font-size: 18px;
         margin-bottom: 15px;
     }
-    
+
     .metrics-definition dl dt {
         font-weight: bold;
         margin-top: 10px;
     }
-    
+
     .metrics-definition dl dd {
         margin-bottom: 10px;
         color: #555;
+    }
+
+    .chart-title {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        text-align: center;
+    }
+
+    .metrics-section {
+        margin-top: 30px;
+    }
+
+    .metrics-summary {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+    }
+
+    .last-updated {
+        text-align: right;
+        font-style: italic;
+        color: #666;
+        font-size: 12px;
+        margin-bottom: 15px;
     }
 </style>
 {% endblock %}
@@ -91,312 +83,43 @@
 {% block content %}
 <div class="container mt-4">
     <h1 class="mb-4">Search Metrics Dashboard</h1>
-    
+
+    <div class="last-updated" id="last-updated">Last updated: {{ datetime.now().strftime('%H:%M:%S') }}</div>
+
     <!-- Summary metrics -->
-    <div class="row mb-4">
-        <div class="col-md-4">
+    <div class="row">
+        <div class="col-md-6">
             <div class="metric-card">
-                <div class="metric-label">Total Searches (30 days)</div>
-                <div class="metric-value">{{ total_searches }}</div>
+                <div class="metric-label">Total Searches</div>
+                <div class="metric-value" id="total-searches">{{ total_searches }}</div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-6">
             <div class="metric-card">
-                <div class="metric-label">Total Clicks (30 days)</div>
-                <div class="metric-value">{{ total_clicks }}</div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="metric-card">
-                <div class="metric-label">Total Plays (30 days)</div>
-                <div class="metric-value">{{ total_plays }}</div>
+                <div class="metric-label">Total Interactions</div>
+                <div class="metric-value" id="total-interactions">{{ total_interactions }}</div>
             </div>
         </div>
     </div>
-    
-    <!-- Time period tabs -->
-    <ul class="nav nav-tabs time-period-tabs" id="timePeriodTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="day-tab" data-bs-toggle="tab" data-bs-target="#day" type="button" role="tab">Last 24 Hours</button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="week-tab" data-bs-toggle="tab" data-bs-target="#week" type="button" role="tab">Last 7 Days</button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="month-tab" data-bs-toggle="tab" data-bs-target="#month" type="button" role="tab">Last 30 Days</button>
-        </li>
-    </ul>
-    
-    <!-- Tab content -->
-    <div class="tab-content" id="timePeriodTabContent">
-        <!-- 24 Hours tab -->
-        <div class="tab-pane fade show active" id="day" role="tabpanel" aria-labelledby="day-tab">
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="chart-container">
-                        <canvas id="ndcgChart1d"></canvas>
-                    </div>
+
+    <!-- Metrics over time (line charts) -->
+    <div class="metrics-section">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="chart-title">Precision@5 and Precision@10 Over Time</div>
+                <div class="chart-container">
+                    <canvas id="precisionLineChart"></canvas>
                 </div>
-                <div class="col-md-6">
-                    <div class="chart-container">
-                        <canvas id="recallChart1d"></canvas>
-                    </div>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="chart-container">
-                        <canvas id="precisionChart1d"></canvas>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="chart-container">
-                        <canvas id="ctrChart1d"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 7 Days tab -->
-        <div class="tab-pane fade" id="week" role="tabpanel" aria-labelledby="week-tab">
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="chart-container">
-                        <canvas id="ndcgChart7d"></canvas>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="chart-container">
-                        <canvas id="recallChart7d"></canvas>
-                    </div>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="chart-container">
-                        <canvas id="precisionChart7d"></canvas>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="chart-container">
-                        <canvas id="ctrChart7d"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 30 Days tab -->
-        <div class="tab-pane fade" id="month" role="tabpanel" aria-labelledby="month-tab">
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="chart-container">
-                        <canvas id="ndcgChart30d"></canvas>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="chart-container">
-                        <canvas id="recallChart30d"></canvas>
-                    </div>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="chart-container">
-                        <canvas id="precisionChart30d"></canvas>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="chart-container">
-                        <canvas id="ctrChart30d"></canvas>
-                    </div>
+                <div class="chart-description text-center">
+                    <small>Based on likes per returned result</small>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- Metrics definitions -->
-    <div class="metrics-definition">
-        <h3>Metrics Definitions</h3>
-        <dl>
-            <dt>NDCG (Normalized Discounted Cumulative Gain)</dt>
-            <dd>Measures the ranking quality of search results, considering the position of relevant items. Higher values indicate better ranking.</dd>
-            
-            <dt>Recall@K</dt>
-            <dd>The proportion of relevant items that are successfully retrieved in the top K search results. It answers: "Of all relevant items, how many did we find?"</dd>
-            
-            <dt>Precision@K</dt>
-            <dd>The proportion of retrieved items in the top K that are relevant. It answers: "Of the items we showed, how many were relevant to the user?"</dd>
-            
-            <dt>CTR (Click-Through Rate)</dt>
-            <dd>The ratio of clicks to searches, indicating how often users click on search results.</dd>
-        </dl>
-    </div>
-</div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Chart options
-        const chartOptions = {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 1.0,
-                    ticks: {
-                        callback: function(value) {
-                            return (value * 100) + '%';
-                        }
-                    }
-                }
-            },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return context.dataset.label + ': ' + (context.parsed.y * 100).toFixed(2) + '%';
-                        }
-                    }
-                }
-            }
-        };
-        
-        // Data for charts
-        const periods = ['1d', '7d', '30d'];
-        const metrics = {{ metrics_by_period|tojson }};
-        const avgMetrics = {{ avg_metrics_by_period|tojson }};
-        
-        periods.forEach(period => {
-            // NDCG Chart
-            new Chart(document.getElementById(`ndcgChart${period}`), {
-                type: 'bar',
-                data: {
-                    labels: ['NDCG@5', 'NDCG@10'],
-                    datasets: [
-                        {
-                            label: 'Your Score',
-                            data: [
-                                metrics[period]['ndcg@5'] || 0,
-                                metrics[period]['ndcg@10'] || 0
-                            ],
-                            backgroundColor: '#1db954'
-                        },
-                        {
-                            label: 'Average Score',
-                            data: [
-                                avgMetrics[period]['ndcg@5'] || 0,
-                                avgMetrics[period]['ndcg@10'] || 0
-                            ],
-                            backgroundColor: '#b3b3b3'
-                        }
-                    ]
-                },
-                options: Object.assign({}, chartOptions, {
-                    plugins: Object.assign({}, chartOptions.plugins, {
-                        title: {
-                            display: true,
-                            text: 'NDCG (Search Ranking Quality)'
-                        }
-                    })
-                })
-            });
-            
-            // Recall Chart
-            new Chart(document.getElementById(`recallChart${period}`), {
-                type: 'bar',
-                data: {
-                    labels: ['Recall@5', 'Recall@10'],
-                    datasets: [
-                        {
-                            label: 'Your Score',
-                            data: [
-                                metrics[period]['recall@5'] || 0,
-                                metrics[period]['recall@10'] || 0
-                            ],
-                            backgroundColor: '#1db954'
-                        },
-                        {
-                            label: 'Average Score',
-                            data: [
-                                avgMetrics[period]['recall@5'] || 0,
-                                avgMetrics[period]['recall@10'] || 0
-                            ],
-                            backgroundColor: '#b3b3b3'
-                        }
-                    ]
-                },
-                options: Object.assign({}, chartOptions, {
-                    plugins: Object.assign({}, chartOptions.plugins, {
-                        title: {
-                            display: true,
-                            text: 'Recall (Relevant Items Found)'
-                        }
-                    })
-                })
-            });
-            
-            // Precision Chart
-            new Chart(document.getElementById(`precisionChart${period}`), {
-                type: 'bar',
-                data: {
-                    labels: ['Precision@5', 'Precision@10'],
-                    datasets: [
-                        {
-                            label: 'Your Score',
-                            data: [
-                                metrics[period]['precision@5'] || 0,
-                                metrics[period]['precision@10'] || 0
-                            ],
-                            backgroundColor: '#1db954'
-                        },
-                        {
-                            label: 'Average Score',
-                            data: [
-                                avgMetrics[period]['precision@5'] || 0,
-                                avgMetrics[period]['precision@10'] || 0
-                            ],
-                            backgroundColor: '#b3b3b3'
-                        }
-                    ]
-                },
-                options: Object.assign({}, chartOptions, {
-                    plugins: Object.assign({}, chartOptions.plugins, {
-                        title: {
-                            display: true,
-                            text: 'Precision (Relevance of Results)'
-                        }
-                    })
-                })
-            });
-            
-            // CTR Chart
-            new Chart(document.getElementById(`ctrChart${period}`), {
-                type: 'bar',
-                data: {
-                    labels: ['Click-Through Rate'],
-                    datasets: [
-                        {
-                            label: 'Your Score',
-                            data: [metrics[period]['ctr'] || 0],
-                            backgroundColor: '#1db954'
-                        },
-                        {
-                            label: 'Average Score',
-                            data: [avgMetrics[period]['ctr'] || 0],
-                            backgroundColor: '#b3b3b3'
-                        }
-                    ]
-                },
-                options: Object.assign({}, chartOptions, {
-                    plugins: Object.assign({}, chartOptions.plugins, {
-                        title: {
-                            display: true,
-                            text: 'Click-Through Rate'
-                        }
-                    })
-                })
-            });
-        });
-    });
+    // Initialize metrics data for external JS
+    window.initialMetricsOverTime = JSON.parse('{{ metrics_over_time|tojson|safe }}');
 </script>
-{% endblock %} 
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

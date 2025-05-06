@@ -861,6 +861,7 @@ p {
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
     border: 1px solid #e9ecef;
+    position: relative;
 }
 
 .result-card:hover {
@@ -900,33 +901,71 @@ p {
     flex-direction: column;
     flex: 1;
     justify-content: center;
+    gap: 8px;
+    padding-right: 40px;
 }
 
 .result-card .title {
     font-size: 15px;
     font-weight: 600;
-    margin-bottom: 6px;
     color: #212529;
     line-height: 1.3;
-    /* Ensure title doesn't overflow and shows ellipsis */
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    max-height: 39px; /* Approximately 2 lines */
+    max-height: 39px;
 }
 
 .result-card .subtitle {
     font-size: 13px;
     color: #6c757d;
-    /* Ensure subtitle doesn't overflow and shows ellipsis */
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
-    max-height: 18px; /* Approximately 1 line */
+    max-height: 18px;
+}
+
+.result-card .song-actions {
+    margin-top: 4px;
+}
+
+.result-card .like-button {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background-color: #fff;
+    color: #666;
+    border: 1px solid #ddd;
+    border-radius: 50%;
+    font-size: 1em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 1;
+}
+
+.result-card .like-button:hover {
+    background-color: #f8f9fa;
+    border-color: #1db954;
+    color: #1db954;
+}
+
+.result-card .like-button.liked {
+    background-color: #1db954;
+    border-color: #1db954;
+    color: white;
+}
+
+.result-card .like-button i {
+    font-size: 1em;
 }
 
 /* Media query for responsiveness */
@@ -975,4 +1014,32 @@ p {
     flex-direction: column;
     flex: 1;
     justify-content: center;
+}
+
+.song-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+/* Like button styling */
+.like-button {
+    background-color: transparent;
+    border: 1px solid #1db954;
+    color: #1db954;
+    border-radius: 20px;
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 10px;
+}
+
+.like-button:hover {
+    background-color: rgba(29, 185, 84, 0.1);
+}
+
+.like-button.liked {
+    background-color: #1db954;
+    color: white;
 }
