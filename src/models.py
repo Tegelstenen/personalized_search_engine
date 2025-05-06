@@ -38,7 +38,9 @@ class UserInteraction(db.Model):
         String(500)
     )  # Text representation of the item
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    duration: Mapped[float] = mapped_column(Float)  # For play interactions
+    duration: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )  # For play interactions
     relevance_score: Mapped[float] = mapped_column(
-        Float
+        Float, nullable=False, default=0.3
     )  # User's implicit feedback score

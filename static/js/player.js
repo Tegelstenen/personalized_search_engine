@@ -64,14 +64,28 @@ class SpotifyPlayer {
             const progress = data.progress;
             const duration = data.duration;
 
-            // Update interaction for the previous track
+            // Update interaction for the previous track when track changes
             if (data.track_id && data.track_id !== this.currentTrackId) {
                 if (this.currentTrackId && this.playStartTime) {
                     const oldTrackDuration = (Date.now() - this.playStartTime) / 1000;
+                    console.log(`Track changed! Logging play duration for previous track: ${oldTrackDuration} seconds`);
                     window.TrackingManager.trackPlay(this.currentTrackId, oldTrackDuration);
                 }
                 this.currentTrackId = data.track_id;
                 this.playStartTime = isPlaying ? Date.now() : null;
+                console.log(`New track detected: ${trackName}. Play state: ${isPlaying ? 'playing' : 'paused'}`);
+            } else if (data.track_id && this.currentTrackId === data.track_id) {
+                // Update start time when play state changes
+                if (isPlaying && !this.playStartTime) {
+                    this.playStartTime = Date.now();
+                    console.log(`Track resumed: ${trackName}, starting timer`);
+                } else if (!isPlaying && this.playStartTime) {
+                    // Track paused, log the duration so far
+                    const pausedDuration = (Date.now() - this.playStartTime) / 1000;
+                    console.log(`Track paused: ${trackName}, logging duration: ${pausedDuration} seconds`);
+                    window.TrackingManager.trackPlay(this.currentTrackId, pausedDuration);
+                    this.playStartTime = null;
+                }
             }
 
             if (trackName && artistName) {
@@ -222,4 +236,17 @@ class SpotifyPlayer {
 // Initialize player when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.spotifyPlayer = new SpotifyPlayer();
+
+    // Track when user leaves the page to log final play duration
+    window.addEventListener('beforeunload', () => {
+        if (window.spotifyPlayer.currentTrackId && window.spotifyPlayer.playStartTime) {
+            const finalDuration = (Date.now() - window.spotifyPlayer.playStartTime) / 1000;
+            console.log(`Page unloading, logging final play duration: ${finalDuration} seconds`);
+            // Use sendBeacon to make sure the request goes through even as page unloads
+            navigator.sendBeacon(
+                `/track-play/${window.spotifyPlayer.currentTrackId}`,
+                JSON.stringify({ duration: finalDuration })
+            );
+        }
+    });
 });

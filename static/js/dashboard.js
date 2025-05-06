@@ -95,14 +95,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 latest_metrics: metadata.latest_metrics,
                 total_searches: metadata.total_searches,
                 total_interactions: metadata.total_interactions,
+                most_played_song: metadata.most_played_song,
+                most_liked_album: metadata.most_liked_album,
+                most_liked_artist: metadata.most_liked_artist,
                 timestamp: new Date().toISOString()
             }));
         }
     }
 
     function updateTotalMetrics(data) {
-        const totalSearchesElement = document.getElementById('total-searches');
-        const totalInteractionsElement = document.getElementById('total-interactions');
+        const totalSearchesElement = document.getElementById('total-searches-value');
+        const totalInteractionsElement = document.getElementById('total-interactions-value');
+        const topSongElement = document.getElementById('top-song');
+        const topAlbumElement = document.getElementById('top-album');
+        const topArtistElement = document.getElementById('top-artist');
 
         if (totalSearchesElement && data.total_searches !== undefined) {
             totalSearchesElement.textContent = data.total_searches;
@@ -111,11 +117,40 @@ document.addEventListener('DOMContentLoaded', function() {
         if (totalInteractionsElement && data.total_interactions !== undefined) {
             totalInteractionsElement.textContent = data.total_interactions;
         }
+
+        console.log('Most played song data:', data.most_played_song);
+
+        if (topSongElement && data.most_played_song) {
+            const song = data.most_played_song;
+            if (song.song === "No songs played yet") {
+                topSongElement.textContent = song.song;
+            } else {
+                topSongElement.textContent = `"${song.song}" - ${song.duration} min`;
+            }
+        }
+
+        if (topAlbumElement && data.most_liked_album) {
+            const album = data.most_liked_album;
+            if (album.album === "No albums liked yet") {
+                topAlbumElement.textContent = album.album;
+            } else {
+                topAlbumElement.textContent = album.album;
+            }
+        }
+
+        if (topArtistElement && data.most_liked_artist) {
+            const artist = data.most_liked_artist;
+            if (artist.artist === "No artists liked yet") {
+                topArtistElement.textContent = artist.artist;
+            } else {
+                topArtistElement.textContent = artist.artist;
+            }
+        }
     }
 
     async function fetchMetrics() {
         try {
-            // Check if we have recent cached metrics (from the last 5 seconds)
+            // Check if we have recent cached metrics (from the last 1 second)
             const cachedData = sessionStorage.getItem('dashboardMetrics');
             if (cachedData) {
                 const parsedCache = JSON.parse(cachedData);
@@ -123,8 +158,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const now = new Date();
                 const cacheAgeMs = now - cacheTime;
 
-                // If cache is fresh (less than 5 seconds old), use it
-                if (cacheAgeMs < 5000) {
+                // If cache is fresh (less than 1 second old), use it
+                if (cacheAgeMs < 1000) {
                     console.log("Using cached metrics data");
                     updateCharts(parsedCache.metrics_over_time, parsedCache);
                     return;
@@ -140,7 +175,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Extract the data for updating charts
                 const metadata = {
                     total_searches: data.total_searches,
-                    total_interactions: data.total_interactions
+                    total_interactions: data.total_interactions,
+                    most_played_song: data.most_played_song,
+                    most_liked_album: data.most_liked_album,
+                    most_liked_artist: data.most_liked_artist
                 };
 
                 updateCharts(data.metrics_over_time, metadata);
@@ -185,7 +223,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-
     // Also fetch when the dashboard becomes visible again
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'visible') {
@@ -196,4 +233,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initial fetch when the page loads
     fetchMetrics();
+
+    // Refresh metrics every 2 seconds
+    setInterval(fetchMetrics, 2000);
 });

@@ -109,35 +109,96 @@
 <div class="container mt-4 mb-5">
     <h1 class="mb-4">Metrics Dashboard</h1>
 
-    <div class="last-updated" id="last-updated">Last updated: {{ datetime.now().strftime('%H:%M:%S') }}</div>
+    <div class="last-updated" id="last-updated">Last updated: {{ current_time }}</div>
 
-    <!-- Summary metrics -->
     <div class="row">
-        <div class="col-md-6">
-            <div class="metric-card">
-                <div class="metric-label">Total Searches</div>
-                <div class="metric-value" id="total-searches">{{ total_searches }}</div>
+        <!-- (1,1) CELL: Precision chart + NEW metric card -->
+        <div class="col-md-6 d-flex flex-column">
+            <!-- Precision Chart -->
+            <div class="chart-container" style="height: 310px; margin-bottom: 20px;">
+                <canvas id="precisionLineChart"></canvas>
+            </div>
+            <!-- New Metric Cards for Total Searches and Total Interactions -->
+            <div class="d-flex gap-3 mb-2">
+                <div class="metric-card flex-grow-1">
+                    <div class="metric-label">Total Searches</div>
+                    <div class="metric-value" id="total-searches-value">8,234</div>
+                    <div class="chart-description">All time searches</div>
+                </div>
+                <div class="metric-card flex-grow-1">
+                    <div class="metric-label">Total Interactions</div>
+                    <div class="metric-value" id="total-interactions-value">12,345</div>
+                    <div class="chart-description">Likes, plays & shares</div>
+                </div>
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="metric-card">
-                <div class="metric-label">Total Interactions</div>
-                <div class="metric-value" id="total-interactions">{{ total_interactions }}</div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Metrics over time (line charts) -->
-    <div class="metrics-section">
-        <div class="row">
-            <div class="col-md-6">
-                <div class="chart-title">Precision@5 and Precision@10 Over Time</div>
-                <div class="chart-container">
-                    <canvas id="precisionLineChart"></canvas>
+        <!-- (1,2) CELL: Stacked metric cards -->
+        <div class="col-md-6">
+            <div class="row">
+                <div class="col-12">
+                    <div class="metric-card">
+                        <div class="metric-label">Most Played Song</div>
+                        <div class="metric-value" id="top-song">
+                            {% if most_played_song.song == "No songs played yet" %}
+                                {{ most_played_song.song }}
+                            {% else %}
+                                {{ most_played_song.song }}
+                            {% endif %}
+                        </div>
+                        <div class="chart-description">{{ most_played_song.duration }} min</div>
+                    </div>
                 </div>
-                <div class="chart-description text-center">
-                    <small>Based on likes per returned result</small>
+                <div class="col-12">
+                    <div class="metric-card">
+                        <div class="metric-label">Most Liked Artist</div>
+                        <div class="metric-value" id="top-artist">
+                            {% if most_liked_artist %}
+                                {% if most_liked_artist.artist == "No artists liked yet" %}
+                                    {{ most_liked_artist.artist }}
+                                {% else %}
+                                    {{ most_liked_artist.artist }}
+                                {% endif %}
+                            {% else %}
+                                No artists liked yet
+                            {% endif %}
+                        </div>
+                            <div class="chart-description">{{ most_liked_artist.likes|default(0) }} {% if most_liked_artist.likes|default(0) == 1 %}like{% else %}likes{% endif %}</div>
+                    </div>
                 </div>
+                <div class="col-12">
+                    <div class="metric-card">
+                        <div class="metric-label">Most Liked Album</div>
+                        <div class="metric-value" id="top-album">
+                            {% if most_liked_album %}
+                                {% if most_liked_album.album == "No albums liked yet" %}
+                                    {{ most_liked_album.album }}
+                                {% else %}
+                                    {{ most_liked_album.album }}
+                                {% endif %}
+                            {% else %}
+                                No albums liked yet
+                            {% endif %}
+                        </div>
+                            <div class="chart-description">by {{ most_liked_album.artist }} — {{ most_liked_album.likes|default(0) }} {% if most_liked_album.likes|default(0) == 1 %}like{% else %}likes{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- (2,1) CELL: Pie chart -->
+        <div class="col-md-3">
+            <div class="chart-title">Top Genres Distribution</div>
+            <div class="chart-container" style="height: 310px;">
+                <canvas id="genreDistributionChart"></canvas>
+            </div>
+        </div>
+
+        <!-- (2,2) CELL: Trends line graph -->
+        <div class="col-md-9">
+            <div class="chart-title">Artist Popularity Trends</div>
+            <div class="chart-container" style="height: 310px; width: 100%;">
+                <canvas id="artistTrendsChart" style="width: 100% !important; height: 100% !important;"></canvas>
             </div>
         </div>
     </div>
@@ -147,19 +208,85 @@
     // Initialize metrics data for external JS
     window.initialMetricsOverTime = JSON.parse('{{ metrics_over_time|tojson|safe }}');
 
+    // Mock data for charts
+    const mockGenreData = {
+        labels: ['Pop', 'Hip Hop', 'R&B', 'Rock', 'Electronic'],
+        datasets: [{
+            data: [35, 25, 20, 15, 5],
+            backgroundColor: [
+                '#1DB954',  // Spotify green
+                '#00ff00',  // Neon green
+                '#191414',  // Spotify black
+                '#b3b3b3',  // Spotify gray
+                '#ffffff'   // White
+            ]
+        }]
+    };
+
+    const mockArtistTrendsData = {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+        datasets: [{
+            label: 'The Weeknd',
+            data: [65, 75, 85, 90, 95, 100, 95, 90, 85, 80, 85, 90],
+            borderColor: '#1DB954',  // Spotify green
+            backgroundColor: 'rgba(29, 185, 84, 0.1)',
+            tension: 0.4
+        }, {
+            label: 'Dua Lipa',
+            data: [45, 55, 65, 70, 80, 85, 80, 75, 70, 75, 80, 85],
+            borderColor: '#00ff00',  // Neon green
+            backgroundColor: 'rgba(0, 255, 0, 0.1)',
+            tension: 0.4
+        }, {
+            label: 'Drake',
+            data: [80, 85, 80, 75, 85, 90, 85, 80, 85, 90, 95, 100],
+            borderColor: '#b3b3b3',  // Spotify gray
+            backgroundColor: 'rgba(179, 179, 179, 0.1)',
+            tension: 0.4
+        }]
+    };
+
     // Update Chart.js defaults for Spotify theme
     Chart.defaults.color = '#b3b3b3';
     Chart.defaults.borderColor = '#333';
 
-    // Add to dashboard.js to ensure charts use Spotify colors
     document.addEventListener('DOMContentLoaded', function() {
-        // Modify dashboard.js to use Spotify colors
-        if (window.dashboardConfig) {
-            window.dashboardConfig.colors = {
-                precision5: '#1DB954',
-                precision10: '#1ed760'
-            };
-        }
+        // Initialize genre distribution chart
+        new Chart(document.getElementById('genreDistributionChart'), {
+            type: 'pie',
+            data: mockGenreData,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    }
+                }
+            }
+        });
+
+        // Initialize artist trends chart
+        new Chart(document.getElementById('artistTrendsChart'), {
+            type: 'line',
+            data: mockArtistTrendsData,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Play Count'
+                        }
+                    }
+                }
+            }
+        });
     });
 </script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>

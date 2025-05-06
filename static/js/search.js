@@ -18,7 +18,8 @@ document.addEventListener('DOMContentLoaded', function() {
         for (let i = 0; i < Math.min(k, hits.length); i++) {
             const hit = hits[i];
             const songArtist = hit.source.artist || hit.source.artistName || hit.source.name || 'Unknown artist';
-            const itemText = `${hit.title} by ${songArtist}`;
+            const albumTitle = hit.source.albumTitle || '';
+            const itemText = `${hit.title} by ${songArtist}${albumTitle ? ` from ${albumTitle}` : ''}`;
 
             if (likedItems.includes(itemText)) {
                 relevantItems++;
@@ -80,7 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.like-button').forEach(button => {
             button.addEventListener('click', function(e) {
                 e.stopPropagation();
-                const itemText = this.getAttribute('data-item-text');
+                const itemText = this.dataset.itemText;
 
                 if (this.classList.contains('liked')) {
                     // Unlike: Remove liked class
@@ -92,7 +93,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Like: Add liked class
                     this.classList.add('liked');
                     this.innerHTML = '<i class="fas fa-thumbs-up"></i>';
-                    window.TrackingManager.trackClick(itemText, "like");
+                    window.TrackingManager.trackLike(itemText);
                     saveLikedItem(itemText);
                 }
 
@@ -100,7 +101,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             // Restore liked state if it was previously liked
-            const itemText = button.getAttribute('data-item-text');
+            const itemText = button.dataset.itemText;
             if (isLiked(itemText)) {
                 button.classList.add('liked');
                 button.innerHTML = '<i class="fas fa-thumbs-up"></i>';
@@ -114,7 +115,8 @@ document.addEventListener('DOMContentLoaded', function() {
             card.onclick = function(e) {
                 const title = this.querySelector('.title').textContent;
                 const subtitle = this.querySelector('.subtitle').textContent;
-                const itemText = `${title} by ${subtitle}`;
+                const albumTitle = this.querySelector('.like-button').dataset.albumTitle;
+                const itemText = `${title} by ${subtitle}${albumTitle ? ` from ${albumTitle}` : ''}`;
 
                 window.TrackingManager.trackClick(itemText, "click");
 
@@ -133,13 +135,14 @@ document.addEventListener('DOMContentLoaded', function() {
         card.className = 'result-card songs';
 
         const songArtist = result.source.artist || result.source.artistName || result.source.name || 'Unknown artist';
-        const itemText = `${result.title} by ${songArtist}`;
+        const albumTitle = result.source.albumTitle || '';
+        const itemText = `${result.title} by ${songArtist}${albumTitle ? ` from ${albumTitle}` : ''}`;
 
         card.innerHTML = `
             <div class="result-content">
                 <div class="title">${result.title}</div>
                 <div class="subtitle">${songArtist}</div>
-                <button class="like-button" data-item-text="${itemText}">
+                <button class="like-button" data-item-text="${itemText}" data-album-title="${albumTitle}">
                     <i class="fas fa-thumbs-up"></i>
                 </button>
             </div>

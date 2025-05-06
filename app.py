@@ -136,6 +136,11 @@ def track_click():
         if not item_text:
             return jsonify({"error": "Missing required fields"}), 400
 
+        # If this is a like interaction, make sure we set the interaction_type to "like"
+        if interaction_type == "like":
+            interaction_type = "like"
+            logger.info(f"Tracking like interaction: {item_text}")
+
         updated_metrics = search_metrics.track_interaction(
             user_id=current_user.id,
             interaction_type=interaction_type,
@@ -524,55 +529,58 @@ def search_spotify_album(query):
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    """Display personalization metrics dashboard."""
+    """Show the metrics dashboard."""
+    # Get user metrics
     user_metrics = search_metrics.get_user_metrics(current_user.id)
     metrics_over_time = search_metrics.get_all_session_metrics(current_user.id)
+    most_played_song = search_metrics.get_most_played_song(current_user.id)
+    most_liked_album = search_metrics.get_most_liked_album(current_user.id)
+    most_liked_artist = search_metrics.get_most_liked_artist(current_user.id)
 
-    total_searches = user_metrics.get("search_count", 0)
-    total_interactions = user_metrics.get("interaction_count", 0)
-
-    if request.args.get("json") == "true":
+    # If it's an AJAX request, return JSON
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify(
             {
-                "total_searches": total_searches,
-                "total_interactions": total_interactions,
+                "total_searches": user_metrics["search_count"],
+                "total_interactions": user_metrics["interaction_count"],
                 "metrics_over_time": metrics_over_time,
+                "most_played_song": most_played_song,
+                "most_liked_album": most_liked_album,
+                "most_liked_artist": most_liked_artist,
             }
         )
 
+    # Otherwise render the template
     return render_template(
         "dashboard.html",
-        total_searches=total_searches,
-        total_interactions=total_interactions,
+        total_searches=user_metrics["search_count"],
+        total_interactions=user_metrics["interaction_count"],
         metrics_over_time=metrics_over_time,
-        datetime=datetime,
+        most_played_song=most_played_song,
+        most_liked_album=most_liked_album,
+        most_liked_artist=most_liked_artist,
+        current_time=datetime.now().strftime("%H:%M:%S"),
     )
 
 
 @app.route("/latest-metrics")
 @login_required
-def get_latest_metrics():
-    """Get the latest metrics for the current user's most recent search."""
-    latest_metrics = search_metrics.get_latest_search_metrics(current_user.id)
-
-    # Get all metrics over time
-    metrics_over_time = search_metrics.get_all_session_metrics(current_user.id)
-
-    # Get total metrics
+def latest_metrics():
+    """Get the latest metrics for the current user."""
     user_metrics = search_metrics.get_user_metrics(current_user.id)
-    total_searches = user_metrics.get("search_count", 0)
-    total_interactions = user_metrics.get("interaction_count", 0)
-
-    # Check if there's an active session
-    current_session = search_metrics.get_session_metrics(current_user.id)
+    metrics_over_time = search_metrics.get_all_session_metrics(current_user.id)
+    most_played_song = search_metrics.get_most_played_song(current_user.id)
+    most_liked_album = search_metrics.get_most_liked_album(current_user.id)
+    most_liked_artist = search_metrics.get_most_liked_artist(current_user.id)
 
     return jsonify(
         {
-            "latest_metrics": latest_metrics,
+            "total_searches": user_metrics["search_count"],
+            "total_interactions": user_metrics["interaction_count"],
             "metrics_over_time": metrics_over_time,
-            "total_searches": total_searches,
-            "total_interactions": total_interactions,
-            "current_session": current_session,
+            "most_played_song": most_played_song,
+            "most_liked_album": most_liked_album,
+            "most_liked_artist": most_liked_artist,
         }
     )
 
