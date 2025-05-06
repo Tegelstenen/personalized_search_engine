@@ -66,9 +66,11 @@ class SearchMetrics:
         item_text: str,
         item_type: str = "song",
         session_id: str | None = None,
+        duration: float = 0,
     ) -> dict:
         """
         Track an interaction for the current search session and update metrics.
+        Added duration parameter to properly track play duration.
         """
         self.logger.info(
             f"Saving {interaction_type} interaction to database: {item_text}"
@@ -92,6 +94,7 @@ class SearchMetrics:
             item_text=item_text,
             timestamp=datetime.now(),
             session_id=session_id,
+            duration=duration if interaction_type == "play" else None,
         )
         db.session.add(interaction)
 
@@ -103,7 +106,7 @@ class SearchMetrics:
 
             # Update specific metrics based on interaction type
             if interaction_type == "play":
-                self._update_most_played_metrics(metrics, item_text)
+                self._update_most_played_metrics(metrics, user_id, item_text, duration)
             elif interaction_type == "like":
                 self._update_most_liked_metrics(metrics, item_text)
 
@@ -112,20 +115,68 @@ class SearchMetrics:
         # Return the latest metrics for the user
         return self.get_session_metrics(user_id)
 
-    def _update_most_played_metrics(self, metrics: UserMetrics, item_text: str) -> None:
-        """Update most played song metrics when a play interaction occurs."""
-        # Logic to parse the item_text and update most_played metrics if needed
+    def _update_most_played_metrics(
+        self, metrics: UserMetrics, user_id: int, item_text: str, duration: float
+    ) -> None:
+        """
+        Update most played song metrics when a play interaction occurs.
+        Now properly tracks play counts and durations to determine the most played song.
+        """
         parts = item_text.split(" by ", 1)
         if len(parts) == 2:
-            song, rest = parts
-            # Extract just the artist name (before " from ")
-            artist = rest.split(" from ")[0].strip()
-            # Update if this is the first song or if it has more plays than the current one
-            # This is a simplified version - you'll need more logic to track actual play counts
-            if not metrics.most_played_song:
-                metrics.most_played_song = song.strip()
+            song, artist = parts
+            song = song.strip()
+            artist = artist.strip()
+
+            # Get all play interactions for this song by this user
+            play_interactions = (
+                db.session.query(UserInteraction)
+                .filter_by(user_id=user_id, interaction_type="play")
+                .filter(UserInteraction.item_text.like(f"{song} by {artist}%"))
+                .all()
+            )
+
+            # Calculate total play count and duration for this song
+            total_count = len(play_interactions)
+            total_duration = (
+                sum(interaction.duration or 0 for interaction in play_interactions)
+                + duration
+            )
+
+            self.logger.info(
+                f"Song '{song}' by '{artist}' has been played {total_count} times with total duration {total_duration}s"
+            )
+
+            # Get the current most played song's total playtime
+            current_most_played = metrics.most_played_song
+            current_most_played_artist = metrics.most_played_artist
+            current_most_played_duration = metrics.most_played_duration or 0
+
+            if current_most_played and current_most_played_artist:
+                current_interactions = (
+                    db.session.query(UserInteraction)
+                    .filter_by(user_id=user_id, interaction_type="play")
+                    .filter(
+                        UserInteraction.item_text.like(
+                            f"{current_most_played} by {current_most_played_artist}%"
+                        )
+                    )
+                    .all()
+                )
+                current_duration = sum(
+                    interaction.duration or 0 for interaction in current_interactions
+                )
+            else:
+                current_duration = 0
+
+            # Update most played song if this one has longer total play time
+            if not current_most_played or total_duration > current_duration:
+                self.logger.info(
+                    f"Updating most played song to '{song}' by '{artist}' with duration {total_duration}s"
+                )
+                metrics.most_played_song = song
                 metrics.most_played_artist = artist
-                metrics.most_played_duration = 60  # Default to 1 minute (60 seconds)
+                metrics.most_played_duration = total_duration
 
     def _update_most_liked_metrics(self, metrics: UserMetrics, item_text: str) -> None:
         """Update most liked album and artist metrics when a like interaction occurs."""
@@ -237,22 +288,16 @@ class SearchMetrics:
         Get the most played song for a user based on stored metrics.
         """
         metrics = db.session.query(UserMetrics).filter_by(user_id=user_id).first()
+        logging.getLogger(__name__).info(f"User metrics for user {user_id}: {metrics}")
 
         if not metrics or not metrics.most_played_song:
-            return {"song": "No songs played yet", "artist": "", "duration": "0"}
-
-        # Clean up the artist name by removing any album or lyrics information
-        artist = metrics.most_played_artist or ""
-        if " from " in artist:
-            artist = artist.split(" from ")[0].strip()
-        if " | " in artist:
-            artist = artist.split(" | ")[0].strip()
+            return {"song": "No songs played yet", "artist": "", "duration": 0}
 
         return {
             "song": metrics.most_played_song,
-            "artist": artist,
-            "duration": str(
-                round(metrics.most_played_duration / 60, 1)
+            "artist": metrics.most_played_artist or "",
+            "duration": round(
+                metrics.most_played_duration / 60, 1
             ),  # Convert to minutes
         }
 

@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Chart configuration
     const lineChartOptions = {
         responsive: true,
         maintainAspectRatio: false,
@@ -39,16 +38,17 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     let precisionChart;
+    let metricsOverTime = window.initialMetricsOverTime || {};
+    let searchNumbers = metricsOverTime['search_numbers'] || [];
 
-    // Initialize with empty data if no server data is available
     function createCharts() {
         if (document.getElementById('precisionLineChart')) {
             const precisionData = {
-                labels: [],
+                labels: searchNumbers,
                 datasets: [
                     {
                         label: 'Precision@5',
-                        data: [],
+                        data: metricsOverTime['precision@5'] || [],
                         borderColor: '#1db954',
                         backgroundColor: 'rgba(29, 185, 84, 0.1)',
                         fill: false,
@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     },
                     {
                         label: 'Precision@10',
-                        data: [],
+                        data: metricsOverTime['precision@10'] || [],
                         borderColor: '#3e7d32',
                         backgroundColor: 'rgba(62, 125, 50, 0.1)',
                         fill: false,
@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 ]
             };
 
-            console.log('Creating initial precision chart');
+            console.log('Creating precision chart with data:', precisionData);
 
             precisionChart = new Chart(document.getElementById('precisionLineChart'), {
                 type: 'line',
@@ -75,25 +75,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Update chart data when new data is fetched
     function updateCharts(newData, metadata) {
+        metricsOverTime = newData;
+        searchNumbers = newData['search_numbers'] || [];
+
         console.log('Updating charts with data:', newData);
 
-        if (precisionChart && newData) {
-            const searchNumbers = newData['search_numbers'] || [];
-            const precision5Data = newData['precision@5'] || [];
-            const precision10Data = newData['precision@10'] || [];
-
+        if (precisionChart) {
             precisionChart.data.labels = searchNumbers;
-            precisionChart.data.datasets[0].data = precision5Data;
-            precisionChart.data.datasets[1].data = precision10Data;
-            precisionChart.update();
-
-            console.log('Chart updated with labels:', searchNumbers);
-            console.log('Precision@5 data:', precision5Data);
-            console.log('Precision@10 data:', precision10Data);
-        } else {
-            console.warn('Chart or data unavailable for update');
+            precisionChart.data.datasets[0].data = newData['precision@5'] || [];
+            precisionChart.data.datasets[1].data = newData['precision@10'] || [];
+            console.log('Chart updated with labels:', precisionChart.data.labels);
+            console.log('Precision@5 data:', precisionChart.data.datasets[0].data);
+            console.log('Precision@10 data:', precisionChart.data.datasets[1].data);
+            precisionChart.update('none');
         }
 
         if (metadata) {
@@ -107,6 +102,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const topSongElement = document.getElementById('top-song');
         const topAlbumElement = document.getElementById('top-album');
         const topArtistElement = document.getElementById('top-artist');
+        const topSongDurationElement = document.querySelector('#top-song + .chart-description');
 
         if (totalSearchesElement && data.total_searches !== undefined) {
             totalSearchesElement.textContent = data.total_searches;
@@ -116,12 +112,20 @@ document.addEventListener('DOMContentLoaded', function() {
             totalInteractionsElement.textContent = data.total_interactions;
         }
 
+        console.log('Most played song data:', data.most_played_song);
+
         if (topSongElement && data.most_played_song) {
             const song = data.most_played_song;
             if (song.song === "No songs played yet") {
                 topSongElement.textContent = song.song;
+                if (topSongDurationElement) {
+                    topSongDurationElement.textContent = '';
+                }
             } else {
-                topSongElement.textContent = song.song;
+                topSongElement.textContent = `${song.song}`;
+                if (topSongDurationElement) {
+                    topSongDurationElement.textContent = `by ${song.artist} • ${song.duration} min`;
+                }
             }
         }
 
@@ -146,9 +150,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function fetchMetrics() {
         try {
-            console.log('Fetching metrics from /latest-metrics');
-            const response = await fetch('/latest-metrics');
-
+            // Add a timestamp to prevent caching
+            const timestamp = new Date().getTime();
+            const response = await fetch(`/latest-metrics?_=${timestamp}`);
             if (response.ok) {
                 const data = await response.json();
                 console.log("Fetched metrics:", data);
@@ -164,7 +168,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 updateCharts(data.metrics_over_time, metadata);
 
-                // Also update the timestamp to indicate when data was refreshed
+                // Update the timestamp to indicate when data was refreshed
                 if (document.getElementById('last-updated')) {
                     const now = new Date();
                     document.getElementById('last-updated').textContent =
@@ -178,9 +182,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Initialize charts and fetch data
     createCharts();
-    fetchMetrics();
 
     // Listen for custom metrics update events
     window.addEventListener('metrics_updated', function() {
@@ -188,7 +190,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchMetrics();
     });
 
-    // Also fetch when the dashboard becomes visible again
+    // Refresh when visibility changes
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'visible') {
             console.log('Dashboard tab became visible, fetching latest metrics');
@@ -196,6 +198,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Refresh metrics every 10 seconds
-    setInterval(fetchMetrics, 10000);
+    // Initial fetch when the page loads
+    fetchMetrics();
+
+    // Refresh metrics every 5 seconds (shorter interval for more responsive updates)
+    setInterval(fetchMetrics, 5000);
 });

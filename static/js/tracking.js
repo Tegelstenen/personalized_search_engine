@@ -43,7 +43,18 @@ class TrackingManager {
                 return;
             }
 
-            console.log(`Tracking play for track ${trackId} with duration ${duration} seconds`);
+            // Get the track details to provide a more complete item_text
+            let trackInfo = await TrackingManager.getTrackInfo(trackId);
+            let itemText = "";
+
+            if (trackInfo) {
+                // Format as "song by artist from album" which matches the expected format
+                // for tracking metrics
+                itemText = `${trackInfo.title} by ${trackInfo.artist}${trackInfo.album ? ` from ${trackInfo.album}` : ''}`;
+                console.log(`Tracking play for "${itemText}" with duration ${duration} seconds`);
+            } else {
+                console.log(`Tracking play for track ${trackId} with duration ${duration} seconds`);
+            }
 
             const response = await fetch(`/track-play/${trackId}`, {
                 method: 'POST',
@@ -51,20 +62,35 @@ class TrackingManager {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    duration: duration
+                    duration: duration,
+                    item_text: itemText
                 })
             });
 
             const data = await response.json();
 
             if (data.success) {
-                console.log(`Successfully tracked play for track ${trackId} with ${duration} seconds`);
+                console.log(`Successfully tracked play for "${itemText || trackId}" with ${duration} seconds`);
                 TrackingManager.notifyDashboardUpdate();
             } else {
                 console.error('Failed to track play:', data.error);
             }
         } catch (error) {
             console.error('Error tracking play:', error);
+        }
+    }
+
+    static async getTrackInfo(trackId) {
+        try {
+            const response = await fetch(`/get-track-info/${trackId}`);
+            if (response.ok) {
+                const data = await response.json();
+                return data.track;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error fetching track info:', error);
+            return null;
         }
     }
 
