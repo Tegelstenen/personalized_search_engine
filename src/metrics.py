@@ -117,12 +117,14 @@ class SearchMetrics:
         # Logic to parse the item_text and update most_played metrics if needed
         parts = item_text.split(" by ", 1)
         if len(parts) == 2:
-            song, artist = parts
+            song, rest = parts
+            # Extract just the artist name (before " from ")
+            artist = rest.split(" from ")[0].strip()
             # Update if this is the first song or if it has more plays than the current one
             # This is a simplified version - you'll need more logic to track actual play counts
             if not metrics.most_played_song:
                 metrics.most_played_song = song.strip()
-                metrics.most_played_artist = artist.strip()
+                metrics.most_played_artist = artist
                 metrics.most_played_duration = 60  # Default to 1 minute (60 seconds)
 
     def _update_most_liked_metrics(self, metrics: UserMetrics, item_text: str) -> None:
@@ -237,13 +239,20 @@ class SearchMetrics:
         metrics = db.session.query(UserMetrics).filter_by(user_id=user_id).first()
 
         if not metrics or not metrics.most_played_song:
-            return {"song": "No songs played yet", "artist": "", "duration": 0}
+            return {"song": "No songs played yet", "artist": "", "duration": "0"}
+
+        # Clean up the artist name by removing any album or lyrics information
+        artist = metrics.most_played_artist or ""
+        if " from " in artist:
+            artist = artist.split(" from ")[0].strip()
+        if " | " in artist:
+            artist = artist.split(" | ")[0].strip()
 
         return {
             "song": metrics.most_played_song,
-            "artist": metrics.most_played_artist or "",
-            "duration": round(
-                metrics.most_played_duration / 60, 1
+            "artist": artist,
+            "duration": str(
+                round(metrics.most_played_duration / 60, 1)
             ),  # Convert to minutes
         }
 

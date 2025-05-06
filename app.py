@@ -167,21 +167,8 @@ def track_play(track_id):
         track_name = track["name"]
         artist_name = track["artists"][0]["name"]
         album_name = track["album"]["name"]
-        lyrics = get_track_lyrics(artist_name, track_name)
-        if lyrics:
 
-            lyrics_preview = lyrics.split("\n")[:5]
-            lyrics_text = " | ".join(
-                line.strip() for line in lyrics_preview if line.strip()
-            )
-            item_text = (
-                f"{track_name} by {artist_name} from {album_name} | {lyrics_text}"
-            )
-
-            if len(item_text) > 450:  # Keep within reasonable length
-                item_text = item_text[:450] + "..."
-        else:
-            item_text = f"{track_name} by {artist_name} from {album_name}"
+        item_text = f"{track_name} by {artist_name} from {album_name}"
 
         user_profile_manager.track_interaction(
             user_id=current_user.id,

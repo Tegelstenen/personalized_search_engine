@@ -9,12 +9,7 @@ class SpotifyPlayer {
         this.progressBar = document.getElementById('song-progress');
         this.currentTimeSpan = document.getElementById('current-time');
         this.totalTimeSpan = document.getElementById('total-time');
-        this.volumeSlider = document.querySelector('.volume-slider');
-        this.volumeProgress = document.querySelector('.volume-progress');
-        this.volumeIcon = document.querySelector('.player-volume i');
 
-        this.isDragging = false;
-        this.previousVolume = 100;
         this.currentTrackId = null;
         this.playStartTime = null;
         this.trackPlayInterval = null;
@@ -26,18 +21,6 @@ class SpotifyPlayer {
     initializeEventListeners() {
         // Play/Pause button
         document.getElementById('play-pause-button').addEventListener('click', () => this.togglePlayback());
-
-        // Previous track button
-        document.querySelector('.fa-backward').parentElement.addEventListener('click', () => this.previousTrack());
-
-        // Next track button
-        document.querySelector('.fa-forward').parentElement.addEventListener('click', () => this.nextTrack());
-
-        // Volume control
-        this.volumeSlider.addEventListener('mousedown', (e) => this.handleVolumeMouseDown(e));
-        document.addEventListener('mousemove', (e) => this.handleVolumeMouseMove(e));
-        document.addEventListener('mouseup', () => this.handleVolumeMouseUp());
-        this.volumeIcon.addEventListener('click', () => this.toggleMute());
     }
 
     formatTime(ms) {
@@ -141,94 +124,6 @@ class SpotifyPlayer {
             }
         } catch (error) {
             console.error('Error toggling playback:', error);
-        }
-    }
-
-    async previousTrack() {
-        try {
-            const response = await fetch('/previous-track', { method: 'POST' });
-            if (response.ok) {
-                setTimeout(() => this.updateCurrentlyPlaying(), 300);
-            } else {
-                const data = await response.json();
-                console.error('Error going to previous track:', data.error);
-            }
-        } catch (error) {
-            console.error('Error going to previous track:', error);
-        }
-    }
-
-    async nextTrack() {
-        try {
-            const response = await fetch('/next-track', { method: 'POST' });
-            if (response.ok) {
-                setTimeout(() => this.updateCurrentlyPlaying(), 300);
-            } else {
-                const data = await response.json();
-                console.error('Error skipping to next track:', data.error);
-            }
-        } catch (error) {
-            console.error('Error skipping to next track:', error);
-        }
-    }
-
-    updateVolumeUI(volume) {
-        this.volumeProgress.style.width = `${volume}%`;
-        this.volumeIcon.className = 'fas ' + (
-            volume === 0 ? 'fa-volume-mute' :
-            volume < 30 ? 'fa-volume-off' :
-            volume < 70 ? 'fa-volume-down' :
-            'fa-volume-up'
-        );
-    }
-
-    async setVolume(volume) {
-        try {
-            const response = await fetch('/set-volume', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ volume: Math.round(volume) })
-            });
-            if (!response.ok) {
-                throw new Error('Failed to set volume');
-            }
-        } catch (error) {
-            console.error('Error setting volume:', error);
-        }
-    }
-
-    handleVolumeMouseDown(e) {
-        this.isDragging = true;
-        const rect = this.volumeSlider.getBoundingClientRect();
-        const volume = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-        this.updateVolumeUI(volume);
-        this.setVolume(volume);
-    }
-
-    handleVolumeMouseMove(e) {
-        if (this.isDragging) {
-            const rect = this.volumeSlider.getBoundingClientRect();
-            const volume = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-            this.updateVolumeUI(volume);
-            this.setVolume(volume);
-        }
-    }
-
-    handleVolumeMouseUp() {
-        this.isDragging = false;
-    }
-
-    toggleMute() {
-        const currentWidth = parseFloat(this.volumeProgress.style.width) || 100;
-        if (currentWidth > 0) {
-            this.previousVolume = currentWidth;
-            this.updateVolumeUI(0);
-            this.setVolume(0);
-        } else {
-            this.updateVolumeUI(this.previousVolume);
-            this.setVolume(this.previousVolume);
         }
     }
 }

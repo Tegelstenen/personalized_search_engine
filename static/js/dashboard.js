@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (song.song === "No songs played yet") {
                 topSongElement.textContent = song.song;
             } else {
-                topSongElement.textContent = `"${song.song}" by ${song.artist} - ${song.duration} min`;
+                topSongElement.textContent = song.song;
             }
         }
 
