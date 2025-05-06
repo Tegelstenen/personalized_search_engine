@@ -566,21 +566,28 @@ def dashboard():
 @app.route("/latest-metrics")
 @login_required
 def latest_metrics():
-    """Get the latest metrics for the current user."""
-    user_metrics = search_metrics.get_user_metrics(current_user.id)
-    metrics_over_time = search_metrics.get_all_session_metrics(current_user.id)
-    most_played_song = search_metrics.get_most_played_song(current_user.id)
-    most_liked_album = search_metrics.get_most_liked_album(current_user.id)
-    most_liked_artist = search_metrics.get_most_liked_artist(current_user.id)
+    user_id = current_user.id
+
+    # Get metrics data from database
+    metrics = search_metrics.get_user_metrics(user_id)
+    metrics_over_time = search_metrics.get_all_session_metrics(user_id)
+
+    # Get favorite tracks, artists, etc.
+    most_played_song = search_metrics.get_most_played_song(user_id)
+    most_liked_album = search_metrics.get_most_liked_album(user_id)
+    most_liked_artist = search_metrics.get_most_liked_artist(user_id)
+
+    # Debug: Print what we're returning
+    print(f"Metrics over time: {metrics_over_time}")
 
     return jsonify(
         {
-            "total_searches": user_metrics["search_count"],
-            "total_interactions": user_metrics["interaction_count"],
-            "metrics_over_time": metrics_over_time,
+            "total_searches": metrics.get("search_count", 0),
+            "total_interactions": metrics.get("interaction_count", 0),
             "most_played_song": most_played_song,
             "most_liked_album": most_liked_album,
             "most_liked_artist": most_liked_artist,
+            "metrics_over_time": metrics_over_time,
         }
     )
 
