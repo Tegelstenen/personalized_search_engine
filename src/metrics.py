@@ -245,13 +245,31 @@ class SearchMetrics:
 
         sessions.reverse()  # Oldest first for charting
 
-        precision5_values = [session.precision_at_5 for session in sessions]
-        precision10_values = [session.precision_at_10 for session in sessions]
+        # Get likes per search and calculate cumulative likes
+        likes_per_search = []
+        cumulative_likes = []
+        total_likes = 0
+
+        for session in sessions:
+            # Count likes for this session
+            session_likes = (
+                db.session.query(UserInteraction)
+                .filter_by(
+                    user_id=user_id,
+                    session_id=session.session_id,
+                    interaction_type="like",
+                )
+                .count()
+            )
+            likes_per_search.append(session_likes)
+            total_likes += session_likes
+            cumulative_likes.append(total_likes)
+
         search_numbers = list(range(1, len(sessions) + 1))
 
         return {
-            "precision@5": precision5_values,
-            "precision@10": precision10_values,
+            "likes_per_search": likes_per_search,
+            "cumulative_likes": cumulative_likes,
             "search_numbers": search_numbers,
         }
 

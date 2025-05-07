@@ -26,6 +26,8 @@ class User(UserMixin, db.Model):
     interactions = relationship("UserInteraction", back_populates="user")
     search_sessions = relationship("SearchSession", back_populates="user")
     metrics = relationship("UserMetrics", back_populates="user", uselist=False)
+    genre_stats = relationship("UserGenreStats", back_populates="user")
+    artist_stats = relationship("UserArtistStats", back_populates="user")
 
 
 class UserInteraction(db.Model):
@@ -52,6 +54,9 @@ class UserInteraction(db.Model):
     session_id: Mapped[str | None] = mapped_column(
         String(100), ForeignKey("search_session.session_id"), nullable=True
     )
+    genre: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )  # Genre of the track for play interactions
 
     # Relationships
     user = relationship("User", back_populates="interactions")
@@ -100,3 +105,47 @@ class UserMetrics(db.Model):
 
     # Relationship
     user = relationship("User", back_populates="metrics")
+
+
+# New model for tracking genre statistics
+class UserGenreStats(db.Model):
+    __tablename__ = "user_genre_stats"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), nullable=False)
+    genre: Mapped[str] = mapped_column(String(100), nullable=False)
+    play_count: Mapped[int] = mapped_column(Integer, default=0)
+    total_duration: Mapped[float] = mapped_column(
+        Float, default=0.0
+    )  # Total play duration in seconds
+    last_played: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relationship
+    user = relationship("User", back_populates="genre_stats")
+
+    # Add a unique constraint to ensure one row per user-genre combination
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "genre", name="unique_user_genre"),
+    )
+
+
+# New model for tracking artist statistics
+class UserArtistStats(db.Model):
+    __tablename__ = "user_artist_stats"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), nullable=False)
+    artist: Mapped[str] = mapped_column(String(100), nullable=False)
+    play_count: Mapped[int] = mapped_column(Integer, default=0)
+    total_duration: Mapped[float] = mapped_column(
+        Float, default=0.0
+    )  # Total play duration in seconds
+    last_played: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relationship
+    user = relationship("User", back_populates="artist_stats")
+
+    # Add a unique constraint to ensure one row per user-artist combination
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "artist", name="unique_user_artist"),
+    )

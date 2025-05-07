@@ -11,15 +11,9 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             y: {
                 beginAtZero: true,
-                max: 1.0,
-                ticks: {
-                    callback: function(value) {
-                        return (value * 100) + '%';
-                    }
-                },
                 title: {
                     display: true,
-                    text: 'Score'
+                    text: 'Number of Likes'
                 }
             }
         },
@@ -27,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
             tooltip: {
                 callbacks: {
                     label: function(context) {
-                        return context.dataset.label + ': ' + (context.parsed.y * 100).toFixed(2) + '%';
+                        return context.dataset.label + ': ' + context.parsed.y;
                     }
                 }
             },
@@ -38,6 +32,8 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     let precisionChart;
+    let genreChart;
+    let artistChart;
     let metricsOverTime = window.initialMetricsOverTime || {};
     let searchNumbers = metricsOverTime['search_numbers'] || [];
 
@@ -47,18 +43,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 labels: searchNumbers,
                 datasets: [
                     {
-                        label: 'Precision@5',
-                        data: metricsOverTime['precision@5'] || [],
+                        label: 'Likes per Search',
+                        data: metricsOverTime['likes_per_search'] || [],
+                        type: 'bar',
+                        backgroundColor: '#1db954',
                         borderColor: '#1db954',
-                        backgroundColor: 'rgba(29, 185, 84, 0.1)',
-                        fill: false,
-                        tension: 0.1
+                        borderWidth: 1
                     },
                     {
-                        label: 'Precision@10',
-                        data: metricsOverTime['precision@10'] || [],
-                        borderColor: '#3e7d32',
-                        backgroundColor: 'rgba(62, 125, 50, 0.1)',
+                        label: 'Cumulative Likes',
+                        data: metricsOverTime['cumulative_likes'] || [],
+                        type: 'line',
+                        borderColor: '#b3b3b3',  // Spotify gray
+                        backgroundColor: 'rgba(179, 179, 179, 0.1)',  // Semi-transparent gray
                         fill: false,
                         tension: 0.1
                     }
@@ -68,10 +65,166 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Creating precision chart with data:', precisionData);
 
             precisionChart = new Chart(document.getElementById('precisionLineChart'), {
-                type: 'line',
+                type: 'bar',
                 data: precisionData,
                 options: lineChartOptions
             });
+        }
+
+        // Initialize genre distribution chart with empty data
+        if (document.getElementById('genreDistributionChart')) {
+            const genreData = {
+                labels: ['No data yet'],
+                datasets: [{
+                    data: [1],
+                    backgroundColor: ['#b3b3b3'],  // Spotify gray for empty state
+                    borderWidth: 0
+                }]
+            };
+
+            genreChart = new Chart(document.getElementById('genreDistributionChart'), {
+                type: 'pie',
+                data: genreData,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.label === 'No data yet') {
+                                        return 'Start playing songs to see your genre distribution';
+                                    }
+                                    return context.label + ': ' + context.raw + ' plays';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Fetch initial genre data
+            fetchGenreStats();
+        }
+
+        // Initialize artist trends chart with empty data
+        const artistTrendsCanvas = document.getElementById('artistTrendsChart');
+        if (artistTrendsCanvas && !artistChart) {  // Only create if it doesn't exist
+            const artistData = {
+                labels: ['No data yet'],
+                datasets: [{
+                    label: 'Play Count',
+                    data: [0],
+                    backgroundColor: '#1DB954',  // Spotify green
+                    borderColor: '#191414',
+                    borderWidth: 1
+                }]
+            };
+
+            artistChart = new Chart(artistTrendsCanvas, {
+                type: 'bar',
+                data: artistData,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Play Count'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Artists'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Fetch initial artist data
+            fetchArtistStats();
+        }
+    }
+
+    async function fetchGenreStats() {
+        try {
+            const response = await fetch('/genre-stats');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && genreChart) {
+                    if (data.labels.length === 0) {
+                        // If no data, show empty state
+                        genreChart.data.labels = ['No data yet'];
+                        genreChart.data.datasets[0].data = [1];
+                        genreChart.data.datasets[0].backgroundColor = ['#b3b3b3'];
+                    } else {
+                        // Update with real data
+                        genreChart.data.labels = data.labels;
+                        genreChart.data.datasets[0].data = data.data;
+                        genreChart.data.datasets[0].backgroundColor = [
+                            '#1DB954',  // Spotify green
+                            '#00ff00',  // Neon green
+                            '#191414',  // Spotify black
+                            '#b3b3b3',  // Spotify gray
+                            '#ffffff'   // White
+                        ];
+                    }
+                    genreChart.update();
+                }
+            } else {
+                console.error('Error fetching genre stats:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Error fetching genre stats:', error);
+        }
+    }
+
+    async function fetchArtistStats() {
+        try {
+            const response = await fetch('/artist-stats');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && artistChart) {
+                    if (data.labels.length === 0) {
+                        // If no data, show empty state
+                        artistChart.data.labels = ['No data yet'];
+                        artistChart.data.datasets[0].data = [0];
+                        artistChart.data.datasets[0].backgroundColor = ['#b3b3b3'];  // Spotify gray for empty state
+                    } else {
+                        // Update with real data
+                        artistChart.data.labels = data.labels;
+                        artistChart.data.datasets[0].data = data.data;
+                        // Use the same color scheme as the pie chart
+                        artistChart.data.datasets[0].backgroundColor = [
+                            '#1DB954',  // Spotify green
+                            '#b3b3b3',  // Spotify gray
+                            '#00ff00',  // Neon green
+                            '#191414',  // Spotify black
+                            '#ffffff',  // White
+                            '#1DB954',  // Spotify green
+                            '#b3b3b3',  // Spotify gray
+                            '#00ff00',  // Neon green
+                            '#191414',  // Spotify black
+                            '#ffffff',  // White
+                        ];
+                    }
+                    artistChart.update();
+                }
+            } else {
+                console.error('Error fetching artist stats:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Error fetching artist stats:', error);
         }
     }
 
@@ -83,13 +236,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (precisionChart) {
             precisionChart.data.labels = searchNumbers;
-            precisionChart.data.datasets[0].data = newData['precision@5'] || [];
-            precisionChart.data.datasets[1].data = newData['precision@10'] || [];
+            precisionChart.data.datasets[0].data = newData['likes_per_search'] || [];
+            precisionChart.data.datasets[1].data = newData['cumulative_likes'] || [];
             console.log('Chart updated with labels:', precisionChart.data.labels);
-            console.log('Precision@5 data:', precisionChart.data.datasets[0].data);
-            console.log('Precision@10 data:', precisionChart.data.datasets[1].data);
+            console.log('Likes per search data:', precisionChart.data.datasets[0].data);
+            console.log('Cumulative likes data:', precisionChart.data.datasets[1].data);
             precisionChart.update('none');
         }
+
+        // Update genre and artist stats when metrics are updated
+        fetchGenreStats();
+        fetchArtistStats();
 
         if (metadata) {
             updateTotalMetrics(metadata);

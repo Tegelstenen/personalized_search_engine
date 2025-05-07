@@ -71,6 +71,8 @@
         margin-bottom: 15px;
         text-align: center;
         color: var(--spotify-white);
+        display: block;
+        padding: 10px 0;
     }
 
     .metrics-section {
@@ -115,7 +117,7 @@
         <!-- (1,1) CELL: Precision chart + NEW metric card -->
         <div class="col-md-6 d-flex flex-column">
             <!-- Precision Chart -->
-            <div class="chart-container" style="height: 292px; margin-bottom: 20px;">
+            <div class="chart-container" style="height: 310px; margin-bottom: 20px;">
                 <canvas id="precisionLineChart"></canvas>
             </div>
             <!-- New Metric Cards for Total Searches and Total Interactions -->
@@ -188,17 +190,17 @@
 
         <!-- (2,1) CELL: Pie chart -->
         <div class="col-md-3">
-            <div class="chart-title">Top Genres Distribution</div>
-            <div class="chart-container" style="height: 310px;">
-                <canvas id="genreDistributionChart"></canvas>
+            <div class="chart-container" style="height: 362px;">
+                <h3 class="chart-title" style="color: white; margin-bottom: 20px;">Genre by Plays</h3>
+                <canvas id="genreDistributionChart" style="height: 280px !important;"></canvas>
             </div>
         </div>
 
         <!-- (2,2) CELL: Trends line graph -->
         <div class="col-md-9">
-            <div class="chart-title">Artist Popularity Trends</div>
-            <div class="chart-container" style="height: 310px; width: 100%;">
-                <canvas id="artistTrendsChart" style="width: 100% !important; height: 100% !important;"></canvas>
+            <div class="chart-container" style="height: 362px; width: 100%;">
+                <h3 class="chart-title" style="color: white; margin-bottom: 20px;">Artist by Plays</h3>
+                <canvas id="artistTrendsChart" style="width: 100% !important; height: 280px !important;"></canvas>
             </div>
         </div>
     </div>
@@ -208,91 +210,9 @@
     // Initialize metrics data for external JS
     window.initialMetricsOverTime = JSON.parse('{{ metrics_over_time|tojson|safe }}');
 
-    // Mock data for charts
-    const mockGenreData = {
-        labels: ['Pop', 'Hip Hop', 'R&B', 'Rock', 'Electronic'],
-        datasets: [{
-            data: [35, 25, 20, 15, 5],
-            backgroundColor: [
-                '#1DB954',  // Spotify green
-                '#00ff00',  // Neon green
-                '#191414',  // Spotify black
-                '#b3b3b3',  // Spotify gray
-                '#ffffff'   // White
-            ]
-        }]
-    };
-
-    const mockArtistTrendsData = {
-        labels: ['Drake', 'The Weeknd', 'Dua Lipa', 'Taylor Swift', 'Bad Bunny', 'Ed Sheeran', 'Billie Eilish', 'Post Malone', 'Ariana Grande', 'Justin Bieber'],
-        datasets: [{
-            label: 'Play Count',
-            data: [100, 90, 85, 95, 88, 82, 78, 75, 72, 70],
-            backgroundColor: [
-                '#1DB954',  // Spotify green
-                '#00ff00',  // Neon green
-                '#b3b3b3',  // Spotify gray
-                '#1ed760',  // Spotify light green
-                '#191414',  // Spotify black
-                '#535353',  // Spotify dark gray
-                '#ffffff',  // White
-                '#2ecc71',  // Emerald
-                '#27ae60',  // Nephritis
-                '#16a085'   // Green sea
-            ],
-            borderColor: '#191414',
-            borderWidth: 1
-        }]
-    };
-
     // Update Chart.js defaults for Spotify theme
     Chart.defaults.color = '#b3b3b3';
     Chart.defaults.borderColor = '#333';
-
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize genre distribution chart
-        new Chart(document.getElementById('genreDistributionChart'), {
-            type: 'pie',
-            data: mockGenreData,
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                    }
-                }
-            }
-        });
-
-        // Initialize artist trends chart
-        new Chart(document.getElementById('artistTrendsChart'), {
-            type: 'bar',
-            data: mockArtistTrendsData,
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Play Count'
-                        }
-                    },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Artists'
-                        }
-                    }
-                }
-            }
-        });
-    });
 </script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}

@@ -22,7 +22,7 @@ from src.elastic_utils import (
     process_song_results,
 )
 from src.metrics import SearchMetrics
-from src.models import User, UserInteraction, db
+from src.models import User, UserArtistStats, UserGenreStats, UserInteraction, db
 from src.spotipy_utils import (
     format_album_data,
     format_artist_data,
@@ -171,23 +171,27 @@ def track_play(track_id):
         data = request.json
         duration = data.get("duration", 0)
         item_text = data.get("item_text", "")  # Get item_text from request data
+        genre = data.get("genre", "")  # Get genre from request data
 
         # Only try to get track info if item_text is not provided
         if not item_text:
             try:
                 sp = get_spotify_client()
                 track_info = sp.track(track_id)
-
                 track_name = track_info["name"]
                 artist_name = track_info["artists"][0]["name"]
                 album_name = track_info["album"]["name"]
 
                 item_text = f"{track_name} by {artist_name} from {album_name}"
+                if genre:
+                    item_text += f" (Genre: {genre})"
                 app.logger.info(f"Successfully retrieved track info: {item_text}")
             except Exception as e:
                 app.logger.error(f"Error getting track info for {track_id}: {str(e)}")
                 # If we can't get track info, use a fallback item_text
                 item_text = f"Track {track_id}"
+                if genre:
+                    item_text += f" (Genre: {genre})"
                 app.logger.warning(f"Using fallback item_text: {item_text}")
 
         # Track the play interaction with the search metrics service
@@ -198,6 +202,59 @@ def track_play(track_id):
             item_type="song",
             duration=duration,
         )
+
+        # Update genre statistics if genre is provided
+        if genre:
+            genre_stats = UserGenreStats.query.filter_by(
+                user_id=current_user.id, genre=genre
+            ).first()
+
+            if genre_stats:
+                # Update existing genre stats
+                genre_stats.play_count += 1
+                genre_stats.total_duration += duration
+                genre_stats.last_played = datetime.utcnow()
+            else:
+                # Create new genre stats
+                genre_stats = UserGenreStats(
+                    user_id=current_user.id,
+                    genre=genre,
+                    play_count=1,
+                    total_duration=duration,
+                )
+                db.session.add(genre_stats)
+
+            db.session.commit()
+            app.logger.info(
+                f"Updated genre stats for {genre}: {genre_stats.play_count} plays, {genre_stats.total_duration}s total duration"
+            )
+
+        # Update artist statistics
+        if " by " in item_text:
+            artist_name = item_text.split(" by ")[1].split(" from ")[0].strip()
+            artist_stats = UserArtistStats.query.filter_by(
+                user_id=current_user.id, artist=artist_name
+            ).first()
+
+            if artist_stats:
+                # Update existing artist stats
+                artist_stats.play_count += 1
+                artist_stats.total_duration += duration
+                artist_stats.last_played = datetime.utcnow()
+            else:
+                # Create new artist stats
+                artist_stats = UserArtistStats(
+                    user_id=current_user.id,
+                    artist=artist_name,
+                    play_count=1,
+                    total_duration=duration,
+                )
+                db.session.add(artist_stats)
+
+            db.session.commit()
+            app.logger.info(
+                f"Updated artist stats for {artist_name}: {artist_stats.play_count} plays, {artist_stats.total_duration}s total duration"
+            )
 
         return jsonify({"success": True})
     except Exception as e:
@@ -212,11 +269,17 @@ def get_track_info(track_id):
         sp = get_spotify_client()
         track_info = sp.track(track_id)
 
+        # Get artist info to get genre
+        artist_id = track_info["artists"][0]["id"]
+        artist_info = sp.artist(artist_id)
+        genre = artist_info["genres"][0] if artist_info["genres"] else None
+
         formatted_track = {
             "id": track_info["id"],
             "title": track_info["name"],
             "artist": track_info["artists"][0]["name"],
             "album": track_info["album"]["name"],
+            "genre": genre,
             "image": (
                 track_info["album"]["images"][0]["url"]
                 if track_info["album"]["images"]
@@ -689,11 +752,63 @@ def reset_app():
         # Reset all metrics for the current user
         search_metrics._reset_user_metrics(current_user.id)
 
+        # Delete all genre stats for the current user
+        UserGenreStats.query.filter_by(user_id=current_user.id).delete()
+
+        # Delete all artist stats for the current user
+        UserArtistStats.query.filter_by(user_id=current_user.id).delete()
+
+        db.session.commit()
+
         # Return success response
         return jsonify({"success": True})
     except Exception as e:
         # Log the error and return failure response
         app.logger.error(f"Error in reset_app: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/genre-stats")
+@login_required
+def get_genre_stats():
+    try:
+        # Get top 5 genres by play count
+        genre_stats = (
+            UserGenreStats.query.filter_by(user_id=current_user.id)
+            .order_by(UserGenreStats.play_count.desc())
+            .limit(5)
+            .all()
+        )
+
+        # Format the data for the chart
+        labels = [stat.genre for stat in genre_stats]
+        data = [stat.play_count for stat in genre_stats]
+
+        return jsonify({"success": True, "labels": labels, "data": data})
+    except Exception as e:
+        app.logger.error(f"Error getting genre stats: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/artist-stats")
+@login_required
+def get_artist_stats():
+    try:
+        # Get top 10 artists by play count
+        artist_stats = (
+            UserArtistStats.query.filter_by(user_id=current_user.id)
+            .order_by(UserArtistStats.play_count.desc())
+            .limit(10)
+            .all()
+        )
+
+        # Format the data for the chart
+        labels = [stat.artist for stat in artist_stats]
+        data = [stat.play_count for stat in artist_stats]
+
+        return jsonify({"success": True, "labels": labels, "data": data})
+    except Exception as e:
+        app.logger.error(f"Error getting artist stats: {str(e)}")
         return jsonify({"success": False, "error": str(e)})
 
 

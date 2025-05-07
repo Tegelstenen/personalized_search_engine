@@ -46,12 +46,14 @@ class TrackingManager {
             // Get the track details to provide a more complete item_text
             let trackInfo = await TrackingManager.getTrackInfo(trackId);
             let itemText = "";
+            let genre = "";
 
             if (trackInfo) {
                 // Format as "song by artist from album" which matches the expected format
                 // for tracking metrics
                 itemText = `${trackInfo.title} by ${trackInfo.artist}${trackInfo.album ? ` from ${trackInfo.album}` : ''}`;
-                console.log(`Tracking play for "${itemText}" with duration ${duration} seconds`);
+                genre = trackInfo.genre || "";
+                console.log(`Tracking play for "${itemText}" with duration ${duration} seconds${genre ? ` and genre ${genre}` : ''}`);
             } else {
                 console.log(`Tracking play for track ${trackId} with duration ${duration} seconds`);
             }
@@ -63,14 +65,15 @@ class TrackingManager {
                 },
                 body: JSON.stringify({
                     duration: duration,
-                    item_text: itemText
+                    item_text: itemText,
+                    genre: genre
                 })
             });
 
             const data = await response.json();
 
             if (data.success) {
-                console.log(`Successfully tracked play for "${itemText || trackId}" with ${duration} seconds`);
+                console.log(`Successfully tracked play for "${itemText || trackId}" with ${duration} seconds${genre ? ` and genre ${genre}` : ''}`);
                 TrackingManager.notifyDashboardUpdate();
             } else {
                 console.error('Failed to track play:', data.error);
