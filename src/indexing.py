@@ -21,66 +21,49 @@ BULK_CHUNK_SIZE = 500
 # Define mappings for indices that need specific field types
 SONGS_MAPPING = {
     "properties": {
-        # Text fields for better search
         "title": {
             "type": "text",
             "analyzer": "standard",
-            "fields": {
-                "keyword": {"type": "keyword", "ignore_above": 256}
-            }
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
         },
         "title_embedding": {
             "type": "dense_vector",
             "dims": 384,
             "index": True,
-            "similarity": "cosine"
+            "similarity": "cosine",
         },
         "artist": {
             "type": "text",
             "analyzer": "standard",
-            "fields": {
-                "keyword": {"type": "keyword", "ignore_above": 256}
-            }
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
         },
-        "lyrics": {
-            "type": "text",
-            "analyzer": "standard"
-        },
+        "lyrics": {"type": "text", "analyzer": "standard"},
         # comment this field if you only want to try title_embedding
         "lyrics_embedding": {
             "type": "dense_vector",
             "dims": 384,
             "index": True,
-            "similarity": "cosine"
+            "similarity": "cosine",
         },
         "albumTitle": {
             "type": "text",
             "analyzer": "standard",
-            "fields": {
-                "keyword": {"type": "keyword", "ignore_above": 256}
-            }
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
         },
         "album_genre": {
             "type": "text",
             "analyzer": "standard",
-            "fields": {
-                "keyword": {"type": "keyword", "ignore_above": 256}
-            }
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
         },
-        "summary": {
-            "type": "text",
-            "analyzer": "standard"
-        },
-        "language": {
-            "type": "keyword"
-        },
+        "summary": {"type": "text", "analyzer": "standard"},
+        "language": {"type": "keyword"},
         # Nested and special fields
         "deezer_mapping": {
             "type": "nested",
             "properties": {
                 "0": {"type": "long", "coerce": True},
-                "1": {"type": "keyword"}
-            }
+                "1": {"type": "keyword"},
+            },
         },
         "chords_metadata": {
             "properties": {
@@ -91,67 +74,54 @@ SONGS_MAPPING = {
                     "properties": {
                         "start": {"type": "float", "coerce": True},
                         "end": {"type": "float", "coerce": True},
-                        "label": {"type": "keyword"}
-                    }
-                }
+                        "label": {"type": "keyword"},
+                    },
+                },
             }
         },
         "publicationDate": {
             "type": "date",
             "format": "strict_date_optional_time||epoch_millis||yyyy-MM-dd||strict_date||basic_date",
             "ignore_malformed": True,
-            "null_value": None
+            "null_value": None,
         },
         "id_album": {"type": "keyword"},
         "id_artist": {"type": "keyword"},
         "id_song_musicbrainz": {"type": "keyword"},
-        "id_song_deezer": {"type": "keyword"}
+        "id_song_deezer": {"type": "keyword"},
     },
     "dynamic_templates": [
         {
             "strings_as_keywords": {
                 "match_mapping_type": "string",
-                "mapping": {
-                    "type": "keyword",
-                    "ignore_above": 256
-                }
+                "mapping": {"type": "keyword", "ignore_above": 256},
             }
         }
-    ]
+    ],
 }
 
 ALBUMS_MAPPING = {
     "properties": {
-        # Text fields for better search
         "title": {
             "type": "text",
             "analyzer": "standard",
-            "fields": {
-                "keyword": {"type": "keyword", "ignore_above": 256}
-            }
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
         },
         "name": {
             "type": "text",
             "analyzer": "standard",
-            "fields": {
-                "keyword": {"type": "keyword", "ignore_above": 256}
-            }
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
         },
         "artist_name": {
             "type": "text",
             "analyzer": "standard",
-            "fields": {
-                "keyword": {"type": "keyword", "ignore_above": 256}
-            }
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
         },
         "genre": {
             "type": "text",
             "analyzer": "standard",
-            "fields": {
-                "keyword": {"type": "keyword", "ignore_above": 256}
-            }
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
         },
-        # ID and date fields
         "id_artist": {"type": "keyword"},
         "id_album_deezer": {"type": "keyword"},
         "id_album_musicbrainz": {"type": "keyword"},
@@ -162,86 +132,62 @@ ALBUMS_MAPPING = {
             "type": "date",
             "format": "strict_date_optional_time||epoch_millis||yyyy-MM-dd||strict_date||basic_date",
             "ignore_malformed": True,
-            "null_value": None
-        }
+            "null_value": None,
+        },
     },
     "dynamic_templates": [
         {
             "strings_as_keywords": {
                 "match_mapping_type": "string",
-                "mapping": {
-                    "type": "keyword",
-                    "ignore_above": 256
-                }
+                "mapping": {"type": "keyword", "ignore_above": 256},
             }
         }
-    ]
+    ],
 }
 
 ARTISTS_MAPPING = {
     "properties": {
-        # Text fields for better search
         "name": {
             "type": "text",
             "analyzer": "standard",
-            "fields": {
-                "keyword": {"type": "keyword", "ignore_above": 256}
-            }
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
         },
         "nameVariations": {
             "type": "text",
             "analyzer": "standard",
-            "fields": {
-                "keyword": {"type": "keyword", "ignore_above": 256}
-            }
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
         },
-        "abstract": {
-            "type": "text",
-            "analyzer": "standard"
-        },
-        "dbp_abstract": {
-            "type": "text",
-            "analyzer": "standard"
-        },
+        "abstract": {"type": "text", "analyzer": "standard"},
+        "dbp_abstract": {"type": "text", "analyzer": "standard"},
         "genres": {
             "type": "text",
             "analyzer": "standard",
-            "fields": {
-                "keyword": {"type": "keyword", "ignore_above": 256}
-            }
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
         },
         "dbp_genre": {
             "type": "text",
             "analyzer": "standard",
-            "fields": {
-                "keyword": {"type": "keyword", "ignore_above": 256}
-            }
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
         },
         "type": {"type": "keyword"},
         "location": {
-            "properties": {
-                "city": {"type": "keyword"},
-                "country": {"type": "keyword"}
-            }
-        }
+            "properties": {"city": {"type": "keyword"}, "country": {"type": "keyword"}}
+        },
     },
     "dynamic_templates": [
         {
             "strings_as_keywords": {
                 "match_mapping_type": "string",
-                "mapping": {
-                    "type": "keyword",
-                    "ignore_above": 256
-                }
+                "mapping": {"type": "keyword", "ignore_above": 256},
             }
         }
-    ]
+    ],
 }
 
 INDEX_MAPPINGS = {
     "songs": SONGS_MAPPING,
     "albums": ALBUMS_MAPPING,
-    "artists": ARTISTS_MAPPING
+    "artists": ARTISTS_MAPPING,
 }
 
 
@@ -249,9 +195,13 @@ INDEX_MAPPINGS = {
 def connect_es():
     print("Connecting to Elasticsearch...")
     try:
+        password = os.environ.get("ES_LOCAL_PASSWORD")
+        if not password:
+            raise ValueError("ES_LOCAL_PASSWORD environment variable is not set")
+
         es = Elasticsearch(
             "http://localhost:9200",
-            basic_auth=("elastic", os.environ.get("ES_LOCAL_PASSWORD")),
+            basic_auth=("elastic", password),
         )
         es.info()  # Check connection
         print("Connected to Elasticsearch successfully.")
@@ -299,11 +249,16 @@ def process_document(doc):
         if doc["deezer_mapping"] is None:
             doc["deezer_mapping"] = []
         else:
-            doc["deezer_mapping"] = [
-                {"0": mapping[0], "1": mapping[1]}
-                for mapping in doc["deezer_mapping"]
-                if isinstance(mapping, (list, tuple)) and len(mapping) == 2
-            ]
+            processed_mappings = []
+            for mapping in doc["deezer_mapping"]:
+                if isinstance(mapping, (list, tuple)) and len(mapping) >= 2:
+                    try:
+                        processed_mappings.append(
+                            {"0": str(mapping[0]), "1": str(mapping[1])}
+                        )
+                    except (IndexError, TypeError):
+                        continue
+            doc["deezer_mapping"] = processed_mappings
 
     return doc
 
@@ -320,7 +275,7 @@ def generate_bulk_actions(filepath, index_name, subset_size=None):
         with open(filepath, encoding="utf-8") as f:
             try:
                 print("Processing JSON array using ijson streaming parser...")
-                objects = ijson.items(f, 'item')
+                objects = ijson.items(f, "item")
                 for doc in objects:
                     try:
                         # Extract the $oid for the document ID
@@ -442,25 +397,26 @@ if __name__ == "__main__":
             elapsed = time.time() - start_time
 
             if errors:
+                error_count = len(errors) if isinstance(errors, list) else 0
                 print(
-                    f"Bulk indexing for {filename}: Success={success}, Errors={len(errors)}"
+                    f"Bulk indexing for {filename}: Success={success}, Errors={error_count}"
                 )
                 print(f"Indexing speed: {success / elapsed:.2f} docs/sec")
                 print("First 5 error details:")
-                for i, error in enumerate(errors[:5]):
-                    print(f"Error {i + 1}:")
-                    print(
-                        f"  Operation: {error.get('index', {}).get('_op_type', 'unknown')}"
-                    )
-                    print(
-                        f"  Document ID: {error.get('index', {}).get('_id', 'unknown')}"
-                    )
-                    print(
-                        f"  Error type: {error.get('index', {}).get('error', {}).get('type', 'unknown')}"
-                    )
-                    print(
-                        f"  Error reason: {error.get('index', {}).get('error', {}).get('reason', 'unknown')}"
-                    )
+                if isinstance(errors, list):
+                    for i, error in enumerate(errors[:5]):
+                        if isinstance(error, dict):
+                            print(f"Error {i + 1}:")
+                            index_info = error.get("index", {})
+                            print(
+                                f"  Operation: {index_info.get('_op_type', 'unknown')}"
+                            )
+                            print(f"  Document ID: {index_info.get('_id', 'unknown')}")
+                            error_info = index_info.get("error", {})
+                            print(f"  Error type: {error_info.get('type', 'unknown')}")
+                            print(
+                                f"  Error reason: {error_info.get('reason', 'unknown')}"
+                            )
             else:
                 print(
                     f"Bulk indexing for {filename}: Successfully indexed {success} documents with no errors."

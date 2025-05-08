@@ -14,29 +14,17 @@ repos:
         args: ['--branch', 'master']
 
   # Run black, isort and pyright
-  - repo: local
+  - repo: https://github.com/psf/black
+    rev: 24.2.0
     hooks:
-    - id: black
-      name: black
-      entry: black
-      language: python
-      types: [python]
-      files: \.py$
+      - id: black
+        language_version: python3
 
-    - id: isort
-      name: isort
-      entry: isort
-      language: python
-      types: [python]
-      args: ["--profile=black"]
-      files: \.py$
-
-    - id: pyright
-      name: pyright
-      entry: pyright
-      language: node
-      types: [python]
-      files: \.py$
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile=black"]
 
   # Add mdformat for markdown files
   - repo: https://github.com/executablebooks/mdformat

@@ -26,14 +26,14 @@ This project follows a slightly modified GitFlow workflow to ensure stability an
      - Develop your feature and keep your commits clear and granular.
      - When ready, open a pull request to merge your branch into `dev`.
 
-2. **Code Review and Integration**
+1. **Code Review and Integration**
 
    - All pull requests must be reviewed by at least one other developer.
    - CI checks must pass before merging.
    - Once approved, merge the feature branch into `dev`.
    - Delete the feature branch after successful merge.
 
-3. **Preparing a Release**
+1. **Preparing a Release**
 
    - Create a release branch from `dev`:
 
@@ -44,12 +44,15 @@ This project follows a slightly modified GitFlow workflow to ensure stability an
      ```
 
    - Perform final testing and bug fixes on the release branch.
+
    - Update version numbers and changelog.
 
-4. **Production Release**
+1. **Production Release**
 
    - When the release is ready, open a pull request to merge into `main`.
+
    - After final review and approval, merge into `main`.
+
    - Tag the release in `main`:
 
      ```shell
@@ -61,7 +64,7 @@ This project follows a slightly modified GitFlow workflow to ensure stability an
 
    - Merge the release branch back into `dev`.
 
-5. **Hotfixes**
+1. **Hotfixes**
 
    - For critical bugs in production, create a hotfix branch from `main`:
 
@@ -72,7 +75,7 @@ This project follows a slightly modified GitFlow workflow to ensure stability an
 
    - Fix the bug and open a pull request to merge into both `main` and `dev`.
 
-6. **Refactoring**
+1. **Refactoring**
 
    - For refactoring issues, create a refactor branch from `dev`:
 
@@ -96,7 +99,7 @@ This project uses a combination of rebasing and merging to maintain a clean and 
 
    This creates a linear history for the feature, making it easies to understand and review.
 
-2. **Merging Features:** When a feature is complete, merge it into `dev` using a no-fast-forward merge:
+1. **Merging Features:** When a feature is complete, merge it into `dev` using a no-fast-forward merge:
 
    ```shell
    git checkout dev
@@ -105,7 +108,7 @@ This project uses a combination of rebasing and merging to maintain a clean and 
 
    This preserves the feature branch history in the `dev` branch.
 
-3. **Release and Hotfix Branches:** Use merge (not rebase) when integrating `dev` into release branches, or when merging releases and hotfixes into `main`and `dev`:
+1. **Release and Hotfix Branches:** Use merge (not rebase) when integrating `dev` into release branches, or when merging releases and hotfixes into `main`and `dev`:
 
    ```shell
    git checkout main
@@ -193,29 +196,30 @@ This project uses a combination of rebasing and merging to maintain a clean and 
    BREAKING CHANGE: API now requires OAuth2 token instead of JWT.
    ```
 
-2. **Pull Requests**:
+1. **Pull Requests**:
 
    - Keep PRs small and focused on a single feature or bug fix.
    - Include a description of changes and any necessary context.
    - Link related issues in the PR description.
 
-3. **Code Review**:
+1. **Code Review**:
 
    - Review for code quality, performance, and adherence to project standards.
    - Use GitHub's suggestion feature for proposing changes.
    - Approve only when all comments have been addressed.
 
-4. **Versioning**:
+1. **Versioning**:
 
    - Follow semantic versioning (MAJOR.MINOR.PATCH).
    - Update the version number in the appropriate files before creating a release.
 
-5. **Testing**:
+1. **Testing**:
 
    - Write and update tests for all new features and bug fixes.
    - Ensure all tests pass before opening a pull request.
 
-6. **Documentation**:
+1. **Documentation**:
+
    - Update relevant documentation as part of your changes.
    - Include inline comments for complex logic.
 

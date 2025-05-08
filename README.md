@@ -59,6 +59,7 @@ cd ..
 rm -rf json rdf wasabi-2-0.tar
 cd ..
 ```
+
 remove any other files in the corpus folder except for `album.json`, `artist-without-members.json`, and `song.json`
 
 ## Start indexing
@@ -68,8 +69,10 @@ uv run src/indexing.py
 ```
 
 # To calculate the embeddings
+
 ```zsh
 uv run src/embedding.py -i SONG_JSON_DIR -o OUTPUT_DIR
 ```
+
 then you need to replace the original `song.json` with the output json file, and re-index to load these embeddings on Elastic Search
 you can also specify the batch size with `-b BATCH_SIZE` and which field for embedding with `-f FIELD_NAME`

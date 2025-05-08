@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Search Metrics Dashboard{% endblock %}
+
+{% block head %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .metric-card {
+        background: var(--spotify-light-gray);
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: transform 0.2s ease;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .metric-value {
+        font-size: 28px;
+        font-weight: bold;
+        margin: 12px 0;
+        color: var(--spotify-green);
+    }
+
+    .metric-label {
+        color: var(--spotify-text-gray);
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .chart-container {
+        height: 300px;
+        margin-bottom: 30px;
+        background-color: var(--spotify-light-gray);
+        padding: 20px;
+        border-radius: 8px;
+    }
+
+    .metrics-definition {
+        background-color: var(--spotify-light-gray);
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 30px;
+    }
+
+    .metrics-definition h3 {
+        font-size: 18px;
+        margin-bottom: 15px;
+        color: var(--spotify-white);
+    }
+
+    .metrics-definition dl dt {
+        font-weight: bold;
+        margin-top: 10px;
+        color: var(--spotify-green);
+    }
+
+    .metrics-definition dl dd {
+        margin-bottom: 10px;
+        color: var(--spotify-text-gray);
+    }
+
+    .chart-title {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        text-align: center;
+        color: var(--spotify-white);
+        display: block;
+        padding: 10px 0;
+    }
+
+    .metrics-section {
+        margin-top: 30px;
+    }
+
+    .metrics-summary {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+    }
+
+    .last-updated {
+        text-align: right;
+        font-style: italic;
+        color: var(--spotify-text-gray);
+        font-size: 12px;
+        margin-bottom: 15px;
+    }
+
+    .chart-description {
+        color: var(--spotify-text-gray);
+        font-size: 12px;
+        margin-top: 10px;
+    }
+
+    /* Override Chart.js defaults for Spotify theme */
+    canvas {
+        background-color: var(--spotify-light-gray);
+        border-radius: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <h1 class="mb-4">Metrics Dashboard</h1>
+
+    <div class="last-updated" id="last-updated">Last updated: {{ current_time }}</div>
+
+    <div class="row">
+        <!-- (1,1) CELL: Precision chart + NEW metric card -->
+        <div class="col-md-6 d-flex flex-column">
+            <!-- Precision Chart -->
+            <div class="chart-container" style="height: 310px; margin-bottom: 20px;">
+                <canvas id="precisionLineChart"></canvas>
+            </div>
+            <!-- New Metric Cards for Total Searches and Total Interactions -->
+            <div class="d-flex gap-3 mb-2">
+                <div class="metric-card flex-grow-1">
+                    <div class="metric-label">Total Searches</div>
+                    <div class="metric-value" id="total-searches-value">8,234</div>
+                    <div class="chart-description">All time searches</div>
+                </div>
+                <div class="metric-card flex-grow-1">
+                    <div class="metric-label">Total Interactions</div>
+                    <div class="metric-value" id="total-interactions-value">12,345</div>
+                    <div class="chart-description">Likes, plays & shares</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- (1,2) CELL: Stacked metric cards -->
+        <div class="col-md-6">
+            <div class="row">
+                <div class="col-12">
+                    <div class="metric-card">
+                        <div class="metric-label">Most Played Song</div>
+                        <div class="metric-value" id="top-song">
+                            {% if most_played_song.song == "No songs played yet" %}
+                                {{ most_played_song.song }}
+                            {% else %}
+                                {{ most_played_song.song }}
+                            {% endif %}
+                        </div>
+                        <div class="chart-description">{{ most_played_song.duration }} min</div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="metric-card">
+                        <div class="metric-label">Most Liked Artist</div>
+                        <div class="metric-value" id="top-artist">
+                            {% if most_liked_artist %}
+                                {% if most_liked_artist.artist == "No artists liked yet" %}
+                                    {{ most_liked_artist.artist }}
+                                {% else %}
+                                    {{ most_liked_artist.artist }}
+                                {% endif %}
+                            {% else %}
+                                No artists liked yet
+                            {% endif %}
+                        </div>
+                            <div class="chart-description">{{ most_liked_artist.likes|default(0) }} {% if most_liked_artist.likes|default(0) == 1 %}like{% else %}likes{% endif %}</div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="metric-card">
+                        <div class="metric-label">Most Liked Album</div>
+                        <div class="metric-value" id="top-album">
+                            {% if most_liked_album %}
+                                {% if most_liked_album.album == "No albums liked yet" %}
+                                    {{ most_liked_album.album }}
+                                {% else %}
+                                    {{ most_liked_album.album }}
+                                {% endif %}
+                            {% else %}
+                                No albums liked yet
+                            {% endif %}
+                        </div>
+                            <div class="chart-description">by {{ most_liked_album.artist }} — {{ most_liked_album.likes|default(0) }} {% if most_liked_album.likes|default(0) == 1 %}like{% else %}likes{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- (2,1) CELL: Pie chart -->
+        <div class="col-md-3">
+            <div class="chart-container" style="height: 362px;">
+                <h3 class="chart-title" style="color: white; margin-bottom: 20px;">Genre by Plays</h3>
+                <canvas id="genreDistributionChart" style="height: 280px !important;"></canvas>
+            </div>
+        </div>
+
+        <!-- (2,2) CELL: Trends line graph -->
+        <div class="col-md-9">
+            <div class="chart-container" style="height: 362px; width: 100%;">
+                <h3 class="chart-title" style="color: white; margin-bottom: 20px;">Artist by Plays</h3>
+                <canvas id="artistTrendsChart" style="width: 100% !important; height: 280px !important;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Initialize metrics data for external JS
+    window.initialMetricsOverTime = JSON.parse('{{ metrics_over_time|tojson|safe }}');
+
+    // Update Chart.js defaults for Spotify theme
+    Chart.defaults.color = '#b3b3b3';
+    Chart.defaults.borderColor = '#333';
+</script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
